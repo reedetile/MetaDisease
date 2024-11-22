@@ -130,7 +130,8 @@ library(deSolve)
         
         #System of eqns
         #bSI = (beta) %*% t(S) %*% I
-        bSI = beta*S*I #transmission
+        #bSI = beta*S*I #density dependent transmission
+        bSI = (beta*S*I)/(S+I+R)
         bSI.contact = beta.contact%*%I*S
         birth = mu*(S+I+R) + alpha*I
         
@@ -154,8 +155,11 @@ init <- FormatInit(init.data.frame = init.df)
 
 
 #parameters
-params.df <- data.frame(beta = c(0.01,0.05,0.01),
-                        gamma = c(1/5,1/4,1/3),
+params.df <- data.frame(beta = c(3.98*10^-2,3.98*10^-2,3.98*10^-2), #beta based on Rachowicz + Briggs 2007.
+                        #Beta is constant right now but could be adjusted to vary by pop 
+                        #(look at range of values in R+B 2007)
+                        gamma = c(0.386,0.386,0.386), #gamma based on Briggs et al 2010
+                        #Again, gamma is constant but could be varied
                         mu = c(1/1000,1/1000,1/1000),
                         alpha = c(0.2,0.3,0.4)) %>%
   FormatParams()
@@ -200,3 +204,7 @@ fig1 <- ggplot()+
   ylab("Number ind. in state")
 fig1
 
+
+
+### Need to continue working on this model. Need to think about parameter estimations for alpha +
+### mu. But that also requires me to understand what those parameters actually are...
