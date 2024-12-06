@@ -106,7 +106,7 @@ for(i in 1:nrow(meta_comm1)){
 meta_comm1$Patch <- c('Patch1','Patch2','Patch3','Patch4','Patch5')
 colnames(meta_comm1) <- c('Spp1','Spp2','Spp3','spp4','spp5','Spp6','PatchID')
 beta_diversity <- betadiver(meta_comm1[,1:6], method = 'w')
-plot(beta_diversity)
+#plot(beta_diversity)
 
 
 ### Below is use of Preston's law. Not sure we'll actually be doing this, so I have commented it out for

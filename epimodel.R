@@ -117,6 +117,13 @@ time <- 90 #how many "days" do I want in the season
 # Program Body------------------------------------------
 pop_list_EP <- vector("list", length = time)
 for (t in 1:time) {
+  for (i in 1:num_spp) {
+    for (j in 1:num_spp) {
+      for (p in 1:num_patches) {
+        delta_s <- b*N[p,i]-d*S[p,i] - beta[i,j]*S[p,i]*(I[p,j]/N[p,j]) + phi*sum(-c*S[p,i] + c*S[q,i])
+        delta_s <- b[1]*N[1,1]-d[1]*S[1,1] - beta[1,1]*S[1,1]*(I[1,1]/N[1,1]) + phi[1]*sum(-c*S[1,1] + c*S[1,1])
+        
+for{t in 1:time){
   delta_s <- b*N - d*S - beta*S*I/N+ v*I + phi*sum(-c*S + c*S) #This is wrong, but not quite sure how to fix it. Something is wrong with 
   #beta * S
   #may want to add that back in though

@@ -1,0 +1,69 @@
+---
+title: "Notes For Calum"
+format: docx
+editor: visual
+---
+
+```{r setup, include = FALSE}
+source('Occu_abun_practice.R')
+```
+
+Hi Calum! As we discussed at the rally, I'm a little stuck on trying to do some matrix math in R. I am hoping you can help me understand how to do the write calculations. First I want to provide a bit of background.
+
+# Background
+
+So, I am trying to understand how diseases act in ecological meta-communities . To clarify: in ecology, a community consists of all of the "relevant" species that occur within a habitat patch, while a meta-community is a group of interconnected communities. I want to see how changes in the diversity of these meta-communities can impact disease risk. How diversity is measured is a whole other topic, and not actually important to the problem I'm having. \|
+
+So, you may or may not know about SIR models. These are a fundamental model in disease ecology. As a general explanation, in these models every individual in the system is either susceptible (able to contract the disease), infectious (currently has the disease), or recovered (had the disease, is now immune). For my work, I am examining an extension of this model, which is a frequency dependent SIS (Susceptible - Infectious - Susceptible) model. This model depends on to key rate equations, $\Delta$S and $\Delta$I. Those equations should take the form:
+
+$$
+\Delta S_c = bN_c + dS_c - \beta S_c(I_c/N_c) + vI_c + \phi \sum_{i = 1}^{n}{-cS_c + cS_j}
+$$
+
+$$
+\Delta I_c = \beta S_c*I_c - (vd)I_c + \phi \sum_{i = 1}^{n}{-cI_c + cI_j}
+$$
+
+Where $S_c$ = \# of susceptible individuals within a community, $I_c$ = \# infectious individuals within a community, b = birth rate, d = death rate, $\beta$ is a transmission coefficient, v = recovery rate, $\phi$ is a connectivity parameter (unimportant for my current problem) and c is a movement parameter (movement of species between patches).
+
+# My problem
+
+For susceptible individuals, infectious individuals, and total population I have an S x P matrix, where S is the number of species and P is the number of patches.
+
+```{r make tables, include = FALSE}
+library(gt)
+library(dplyr)
+# Parameters-------------------------------------
+#starting values
+S <- ceiling(meta_comm1[,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #starting value of susceptibles
+I <- meta_comm1[,1:6] - S #starting value of infecteds
+N <- S+I
+table_S <- gt(S) |>
+  tab_header(title = "Number of Susceptible Ind. per patch")
+table_I <- gt(I) |>
+  tab_header(title = "Number of Infected Ind. per patch")
+table_N <- gt(N) |>
+  tab_header(title = "Total number Ind. per patch")
+```
+
+```{r Show tables, echo=FALSE}
+table_S
+table_I
+table_N
+```
+
+Now these all work fine because they're the same dimensions, 6 species \* 5 patches. The problem comes with the part of the equation $\beta S_c$ because $\beta$ is an S x S matrix. defined like so:
+
+```{r, echo=FALSE}
+beta <- matrix(data = NA, nrow = num_spp, ncol = num_spp)
+for (i in 1:nrow(beta)) {
+  for (j in 1:ncol(beta)) {
+    beta[i,j] <- ifelse(i == j, rbeta(n = 1, shape1 = 2, shape2 = 10),rbeta(n = 1, shape1 = 1, shape2 = 1)) #need to make this more realistic
+  }
+}
+beta
+```
+
+I don't think it's important you understand the code, but I imagine you may see my problem. $\beta$ is a 6 x 6 matrix while S and I are 6 x 5 matrices. So I need to make sure that for each combination of $S_c$ and $I_c$ I am pulling the correct cell from the $\beta$ matrix to multiply them by. Does that make sense?
+
+I need help understanding whether this can be easily implemented via matrix math. I'd appreciate any insight you can give!
