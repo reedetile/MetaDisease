@@ -81,13 +81,20 @@ source('Occu_abun_practice.R')
 S <- ceiling(meta_comm1[,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #starting value of susceptibles
 I <- meta_comm1[,1:6] - S #starting value of infecteds
 N <- S+I
+time <- 90 #how many "days" do I want in the season
 
 #species characteristics
-Species <- c("Spp1","Spp2","Spp3","Spp4","spp5","spp6")
-b <- c(0.6,0.5,0.4,0.3,0.2,0.1) #host birth rate
-d <- c(0.06,0.05,0.04,0.03,0.02,0.01) #host death rate
-v <- c(0.4,0.5,0.6,0.7,0.8,0.9) #recovery rate
-phi <- c(0.09,0.08,0.07,0.06,0.05,0.04) #dispersal rate
+Species <- c("PREG","ABOR","RCAT","RDRAY","TTOR","TGRAN")
+# PREG = Pseudacris Regilla (Pacific tree frog)
+# ABOR = Anaxyrus boreas (western toad)
+# RCAT = Rana catesbeiana (American bullfrog)
+# RDRAY = Rana draytonii (Califronia red legged frog)
+# TTOR = Taricha torosa (California newt)
+# TGRAN = Taricha granulosa (rough-skinned newt)
+b <- c(0.6,0.5,0.4,0.3,0.2,0.1)/time #host birth rate
+d <- c(0.06,0.05,0.04,0.03,0.02,0.01)/time #host death rate
+v <- c(0.4,0.5,0.6,0.7,0.8,0.9)/time #recovery rate
+phi <- c(0.09,0.08,0.07,0.06,0.05,0.04)/time #dispersal rate
 species_chara <- data.frame(Species = Species,
                             birth = b, 
                             death = d, 
@@ -102,43 +109,54 @@ for (i in 1:nrow(beta)) {
 }
 
 
-S
-S_Trans <- t(S)
-S_Trans
-
 # meta-community characteristics
 c <- matrix(data = rnorm(n = num_patches^2, mean = 0.5, sd = 0.1),
             nrow = num_patches, 
             ncol = num_patches)
 #Connectivity of patches
 A <- rnorm(n = num_patches, mean = 0.5, sd = 0.1) #area ratios
-time <- 90 #how many "days" do I want in the season
+
 
 # Program Body------------------------------------------
-pop_list_EP <- vector("list", length = time)
-for (t in 1:time) {
-  for (i in 1:num_spp) {
-    for (j in 1:num_spp) {
-      for (p in 1:num_patches) {
-        delta_s <- b*N[p,i]-d*S[p,i] - beta[i,j]*S[p,i]*(I[p,j]/N[p,j]) + phi*sum(-c*S[p,i] + c*S[q,i])
-        delta_s <- b[1]*N[1,1]-d[1]*S[1,1] - beta[1,1]*S[1,1]*(I[1,1]/N[1,1]) + phi[1]*sum(-c*S[1,1] + c*S[1,1])
-        
-for{t in 1:time){
-  delta_s <- b*N - d*S - beta*S*I/N+ v*I + phi*sum(-c*S + c*S) #This is wrong, but not quite sure how to fix it. Something is wrong with 
-  #beta * S
-  #may want to add that back in though
-  delta_I <- beta*S*Z-(v+d)*I+phi*sum(-c*I + c*I)#for now have excluded area of patches
-  #may want to add that back in though
-  delta_Z <- sum(lambda*I - gamma*Z)
-  S <- S+delta_s
-  I <- I+delta_I
-  z <- Z+delta_Z
-  N <- S + I
-  t = t
-  pop <- list(Susceptible = S, Infectious = I, Zoospores = Z, Total = N, Time = t)
-  pop_list_EP[[t]] <- pop
-}
+S <- as.matrix(S)
+I <- as.matrix(I)
+N <- as.matrix(N)
+pop_list_Freq <- vector("list", length = time)
 
-pop_data_EP <- do.call(rbind, pop_list_EP)
-pop_data_EP  
+for (t in 1:time) {
+  delta_s_matrix <- matrix(nrow = num_patches, ncol = num_spp)
+  delta_I_matrix <- matrix(nrow = num_patches, ncol = num_spp)
+  for (p in 1:num_patches) {
+    for(q in 1:num_patches){
+      for (i in 1:num_spp) {
+        for (j in 1:num_spp) {
+          #establish parameters for time t of species s
+          connectivity_s <- phi[i]*sum(-c[p,q]*S[p,i] + c[q,p]*S[q,i])
+          connectivity_I <- phi[i]*sum(-c[p,q]*I[p,i] + c[q,p]*I[q,i])
+          birth <- b[i]*N[p,i]
+          death_s <- d[i]*S[p,i]
+          loss_I <- (v[i]*d[i])*I[p,i]
+          FI <- ifelse(N[p,j] > 0, beta[i,j]*S[p,i]*(I[p,j]/N[p,j]), 0)
+          
+          #change in rate of susceptible + infectious individuals
+          delta_s <- birth - death_s - FI + connectivity_s
+          delta_s_matrix[p,i] <- delta_s
+          
+          delta_I <- FI - loss_I + connectivity_I
+          delta_I_matrix[p,i] <- delta_I
+        }
+      }
+    }
+  }
+   # New population dynamics
+  S <- S + delta_s_matrix
+  I <- I + delta_I_matrix
+  N <- S + I
+  # t = t
+  pop <- list(Susceptible = S, Infectious = I, Total = N, Time = t)
+  pop_list_Freq[[t]] <- pop
+}
+pop_data_Freq <- lapply(pop_list_Freq, as.data.frame)
+View(pop_data_Freq[[1]]) #example of dataframe at time 1
+View(pop_data_Freq[[90]])  #example of dataframe at time 90
 
