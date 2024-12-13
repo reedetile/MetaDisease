@@ -13,7 +13,8 @@ num_spp <- 6 #number of POSSIBLE spp in metacommunity
 
 meta_comm1 <- data.frame(matrix(NA, nrow = num_patches, ncol = num_spp))
 S <- c(0.95,0.9,0.75,0.50,0.20,0.1) #an array of probability values for the occurence of each spp
-K <- c(60,50,40,30,20,10) #this is just an example, but k is the abundance at each rank (i think?)
+#what if I over thought this, and I can just assign an occupancy probability?
+K <- c(10,6,5,4,3,2) #this is just an example, but k is the abundance at each rank (i think?)
 #this could later become some sort of rnorm(). EX rnorm(n = 1, mean = 10, sd = 1). This provides a starting abdunance for each spp if present
 
 ### Creating a meta-community###

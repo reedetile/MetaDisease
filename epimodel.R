@@ -6,7 +6,7 @@
 #Initialize -----------------------------------------
 library(vegan)
 source('Occu_abun_practice.R')
-
+set.seed(1234)
 ########################################
 ### Environmental Pool model
 #######################################
@@ -84,17 +84,54 @@ N <- S+I
 time <- 90 #how many "days" do I want in the season
 
 #species characteristics
-Species <- c("PREG","ABOR","RCAT","RDRAY","TTOR","TGRAN")
+Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
 # PREG = Pseudacris Regilla (Pacific tree frog)
 # ABOR = Anaxyrus boreas (western toad)
 # RCAT = Rana catesbeiana (American bullfrog)
 # RDRAY = Rana draytonii (Califronia red legged frog)
 # TTOR = Taricha torosa (California newt)
 # TGRAN = Taricha granulosa (rough-skinned newt)
-b <- c(0.6,0.5,0.4,0.3,0.2,0.1)/time #host birth rate
-d <- c(0.06,0.05,0.04,0.03,0.02,0.01)/time #host death rate
-v <- c(0.4,0.5,0.6,0.7,0.8,0.9)/time #recovery rate
-phi <- c(0.09,0.08,0.07,0.06,0.05,0.04)/time #dispersal rate
+
+b <- rep(0, times = 6) #currently have birth rate set to 0 b/c this is a within season model
+# if we change to a multi-season model, will need to add in some birth rate
+# b <- c(0.6,0.5,0.4,0.3,0.2,0.1)/time #host birth rate
+d <- c(0.006,
+       NA,
+       NA,
+       0.0007,
+       0.004,
+       0.0099)
+d[2] <- runif(n = 1, min = d[[4]], max = d[[1]])       
+d[3] <- runif(n = 1, min = d[[4]], max = d[[2]])       
+# Citations for death rate
+# PREG = Jameson 1956
+# ABOR = Pilliod 2010
+# RCAT = Howell 2020
+# RDRAY = Feller 2017
+# TTOR = johnson 2013 + assumptions of dilution effects
+# TGRAN =  johnson 2013 + assumptions of dilution effects
+v <- c(NA,
+       NA,
+       NA,
+       NA,
+       0.03,
+       NA)
+# Citation for RCAT recovery = Daszak 2004
+low_recovery <- runif(n = 4, min = 0, max = v[5])
+v[1] <- min(low_recovery)
+v[4] <- max(low_recovery)
+mid_low_recovery <- low_recovery[low_recovery != v[1] & low_recovery != v[4]]
+v[2] <- min(mid_low_recovery)
+v[3] <- max(mid_low_recovery)
+v[6] <- runif(n = 1, min = v[5], max = 0.1) #should find citation for max recovery rate
+v
+#Determining dispersal rate
+psi <- c(0.83, 0.62, 0.14,NA, 0.12,0.64)
+psi[4] <- runif(n = 1, min = psi[5], max = psi[3])
+N_meta <- colSums(N)
+phi <- ifelse(N_meta > 0, psi/N_meta, 0)
+phi
+# alpha <- #disease specific mortality
 species_chara <- data.frame(Species = Species,
                             birth = b, 
                             death = d, 
@@ -122,17 +159,25 @@ S <- as.matrix(S)
 I <- as.matrix(I)
 N <- as.matrix(N)
 pop_list_Freq <- vector("list", length = time)
+dilute_effect <- data.frame(matrix(data = NA, nrow = time, ncol = 2))
+
+
+
+
 
 for (t in 1:time) {
   delta_s_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   delta_I_matrix <- matrix(nrow = num_patches, ncol = num_spp)
+  r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp)
+  B <- matrix(nrow = num_patches, ncol = num_patches)
+  
   for (p in 1:num_patches) {
     for(q in 1:num_patches){
       for (i in 1:num_spp) {
         for (j in 1:num_spp) {
           #establish parameters for time t of species s
-          connectivity_s <- phi[i]*sum(-c[p,q]*S[p,i] + c[q,p]*S[q,i])
-          connectivity_I <- phi[i]*sum(-c[p,q]*I[p,i] + c[q,p]*I[q,i])
+          connectivity_s <- phi[i]*sum(-c[p,q]*S[p,i] + c[q,p]*S[q,i]*(A[p]/A[q]))
+          connectivity_I <- phi[i]*sum(-c[p,q]*I[p,i] + c[q,p]*I[q,i]*(A[p]/A[q]))
           birth <- b[i]*N[p,i]
           death_s <- d[i]*S[p,i]
           loss_I <- (v[i]*d[i])*I[p,i]
@@ -144,6 +189,14 @@ for (t in 1:time) {
           
           delta_I <- FI - loss_I + connectivity_I
           delta_I_matrix[p,i] <- delta_I
+          
+          #parameters to calc R0
+          r0_species_patch[p,j] <-  ifelse(N[p,j] > 0, FI/loss_I, 0)
+          DP <- matrix(data = ifelse(i == j, -(v[i]*d[i]) - phi[i], 0),
+                       nrow = num_spp, ncol = num_spp)
+          EIP <- matrix(data = ifelse(i == j,(A[p]/A[q])*c[p,q]*psi[i],0),
+                        nrow = num_spp, ncol = num_spp)
+          B[p,q] <- ifelse(p == q, DP, EIP)
         }
       }
     }
@@ -155,7 +208,12 @@ for (t in 1:time) {
   # t = t
   pop <- list(Susceptible = S, Infectious = I, Total = N, Time = t)
   pop_list_Freq[[t]] <- pop
+  beta <- betadiver(N, method = 'w')
+  r0_landscape <- eigen(r0_species_patch *(-B^-1))[1]
+  dilute_effect[i,1] <- beta
+  dilute_effect[i,2] <- r0_landscape
 }
+
 pop_data_Freq <- lapply(pop_list_Freq, as.data.frame)
 View(pop_data_Freq[[1]]) #example of dataframe at time 1
 View(pop_data_Freq[[90]])  #example of dataframe at time 90
