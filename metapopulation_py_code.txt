@@ -1,0 +1,567 @@
+import numpy as np
+from sympy import symbols
+from sympy import Matrix
+import pandas as pd
+import networkx as nx
+
+
+def build_landscape_matrices(S, P, connected="generic", patch_specific=False):
+    """
+    Build symbolic landscape R0 matrix based on the environmental pool model
+    with S species and P patches
+
+    Breaks R0 down into its constituent components
+
+    M*: The Jacobian of the "birth matrix". How susceptibles enter the
+        "Infected" classes
+    U: The Jacobian of the time of infected matrix. How Infected states
+       persist.
+
+    U is decomposed as follows
+
+     [B & C \\
+      E & F]
+
+    - B is S*P by S*P
+    - C is S*P by P of zeros
+    - E is P by S*P and
+    - F is P by P
+    - G is the S*P by P upper right hand matrix for M*
+
+    Two ways to calculate R0
+
+    R0 = max eig(M*(-U)^-1)
+
+    or better yet
+
+    R0 = max eig(G * ((-F)^-1 * E * (-B)^-1))
+        - This way is much faster (Arino et al. 2005)
+
+    Parameters
+    ----------
+    S : int
+        Number of species in communities
+    P : int
+        Number of patches in metapopulation
+    connected : str
+        "generic": patches are generically connected
+        "equal": all patches are equally connected
+        "none": no patches are connected
+    patch_specific : bool
+        If False, loss rate (b) and shedding rate (λ) are species-specific. If
+        True they are also patch-specific.
+
+    Returns
+    -------
+    : dict
+        With keys: M, U, G, B, F, E that lookup the corresponding matrices
+    """
+    # Symbollically define the parameters
+
+    # Contact with pathogen in environment. Species-specific
+    βs = np.atleast_1d(
+        np.array(symbols(" ".join(["β_" + np.str(i) for i in range(1, S + 1)]))))
+
+    # Species dispersal rates
+    ϕs = np.atleast_1d(np.array(symbols(" ".join(
+        ["ϕ_" + np.str(i) for i in range(1, S + 1)]))))
+
+    # Species recovery rates
+    bs = np.atleast_1d(np.array(symbols(" ".join(
+        ["b_" + np.str(i) for i in range(1, S + 1)]))))
+
+    # Species shedding rates
+    λs = np.atleast_1d(np.array(symbols(" ".join(
+        ["λ_" + np.str(i) for i in range(1, S + 1)]))))
+
+    # Patch specific zoospore decay rates
+    γs = np.atleast_1d(
+        np.array(symbols(" ".join(["γ_" + np.str(i)
+                                   for i in range(1, P + 1)]))))
+
+    Amat = np.atleast_2d(np.array(symbols(" ".join(
+                                          ["A_" + np.str(i) + np.str(j)
+                                           for i in range(1, P + 1)
+                                           for j in range(1, P + 1)])))
+                         .reshape(P, P))
+
+    # Connectivity matrix of patches
+    if connected == "generic":
+        Cmat = np.atleast_2d(np.array(symbols(" ".join(
+                                              ["c_" + np.str(i) + np.str(j)
+                                               for i in range(1, P + 1)
+                                               for j in range(1, P + 1)])))
+                             .reshape(P, P))
+        np.fill_diagonal(Cmat, 0)  # No self colonization
+    elif connected == "equal":
+        Cmat = np.atleast_2d(np.ones((P, P)).astype(np.int))
+        np.fill_diagonal(Cmat, 0)  # No self colonization
+    else:
+        Cmat = np.atleast_2d(np.zeros((P, P)).astype(np.int))
+
+    # Ordered as species within a patch and then patches (spp, patch)
+    Ss = np.atleast_1d(np.array(symbols(" ".join(["S_" + np.str(j) + np.str(i)
+                                                  for i in range(1, P + 1)
+                                                  for j in range(1, S + 1)]))))
+
+    # Build M*
+    M = build_M(βs, Ss, S, P)
+    G = M[:S*P, -P:]
+
+    # Building U
+    B = build_B(Cmat, Amat, ϕs, bs, S, P, patch_specific=patch_specific)
+    C = np.zeros((S*P, P)).astype(np.int).astype(np.object)
+    E = build_E(λs, S, P, patch_specific=patch_specific)
+    F = build_F(γs, P)
+
+    U1 = np.concatenate([B, C], axis=1)
+    U2 = np.concatenate([E, F], axis=1)
+    U = np.concatenate([U1, U2], axis=0)
+
+    return({"M": Matrix(M),
+            "U": Matrix(U),
+            "G": Matrix(G),
+            "B": Matrix(B),
+            "F": Matrix(F),
+            "E": Matrix(E)})
+
+
+def build_M(βs, Ss, S, P):
+    """ Build the M matrix """
+
+    n = S*P
+    dim = n + P
+    M = np.zeros((dim, dim)).astype(np.int).astype(object)
+    for p in range(P):
+        tS = Ss[p*S:(p*S + S)]
+        βtimesS = βs * tS
+        M[p*S:(p*S + S), n + p] = βtimesS
+
+    return(M)
+
+
+def build_B(Cmat, As, ϕs, bs, S, P, patch_specific=False):
+    """ Build the B matrix"""
+
+    Cmat_axis = Cmat.sum(axis=0)
+
+    diag_matrices = np.empty((P, P)).astype(np.object)
+    for p in range(P):
+
+        for j in range(P):
+
+            tZ = np.zeros((S, S)).astype(np.int).astype(object)
+            if p == j:
+                # Build the diagonal matrix
+                if patch_specific:
+                    temp_bs = np.atleast_1d(np.array(
+                                       symbols(" ".join([str(tb) + (str(p + 1))
+                                                         for tb in bs]))))
+                else:
+                    temp_bs = bs
+                new_diag = -1*temp_bs - ϕs*Cmat_axis[p]
+            else:
+                # Build the p -> j transitions
+                new_diag = ϕs*Cmat[j, p]*As[j, p]
+
+            tZ[np.diag_indices(S)] = new_diag
+            diag_matrices[j, p] = tZ
+
+    tBs = []
+    for j in range(P):
+        tBs.append(np.concatenate(diag_matrices[:, j], axis=0))
+    B = np.concatenate(tBs, axis=1)
+    return(B)
+
+
+def build_E(λs, S, P, patch_specific=False):
+    """
+    Build the E matrix
+    """
+    lmats = []
+    for p in range(P):
+        tZ = np.zeros((P, S)).astype(np.int).astype(np.object)
+
+        # Allow for patch specific lambdas
+        if patch_specific:
+            λ_temp = np.atleast_1d(np.array(symbols(" ".join(
+                                                    [str(tλ) + (str(p + 1))
+                                                     for tλ in λs]))))
+        else:
+            λ_temp = λs
+
+        tZ[p, :] = λ_temp
+        lmats.append(tZ)
+
+    return(np.concatenate(lmats, axis=1))
+
+
+def build_F(γs, P):
+    """
+    Build the F matrix
+    """
+    F = np.zeros((P, P)).astype(np.int).astype(np.object)
+    F[np.diag_indices(P)] = -1*γs
+    return(F)
+
+
+def sobol_sensitivity(model, X, N=1000):
+    """
+    Sobol sensitivity analysis for model with parameter X[:, i]
+
+    Parameters
+    ----------
+    model : fxn
+        Takes in a vector x and returns y
+    X : array-like
+        n, k array. This represents the data from which a sample will be drawn
+    """
+
+    # See page 165 in Global Sensitivity analysis, the primer
+    k = X.shape[1]
+    A = np.hstack([np.random.choice(X[:, i], size=N)[:, np.newaxis]
+                   for i in range(k)])
+    B = np.hstack([np.random.choice(X[:, i], size=N)[:, np.newaxis]
+                   for i in range(k)])
+
+    yA = np.array([model(a) for a in A])
+    yB = np.array([model(b) for b in B])
+    f0 = np.mean(yA)
+    dotAA = np.dot(yA, yA)
+
+    sobol_is = np.empty(k)
+    sobol_Ts = np.empty(k)
+
+    for i in range(k):
+
+        C_i = np.copy(B)
+        C_i[:, i] = A[:, i]
+
+        yC_i = np.array([model(c) for c in C_i])
+
+        sobol_is[i] = (np.dot(yA, yC_i) - f0**2) / (dotAA - f0**2)
+        sobol_Ts[i] = 1 - ((np.dot(yB, yC_i) - f0**2) / (dotAA - f0**2))
+
+    return((sobol_is, sobol_Ts))
+
+
+def distance_on_sphere_numpy(coordinate_array):
+    """
+    Compute a distance matrix of the coordinates using a spherical metric.
+
+    Parameters
+    ----------
+    coordinate_array: numpy.ndarray with shape (n,2);
+        latitude is in 1st col, longitude in 2nd.
+
+    Returns
+    -------
+    distance_mat: numpy.ndarray with shape (n, n)
+        containing distance in km between coords.
+    """
+    # Radius of the earth in km (GRS 80-Ellipsoid)
+    EARTH_RADIUS = 6371.007176
+
+    # Unpacking coordinates
+    latitudes = coordinate_array[:, 0]
+    longitudes = coordinate_array[:, 1]
+
+    # Convert latitude and longitude to spherical coordinates in radians.
+    degrees_to_radians = np.pi/180.0
+    phi_values = (90.0 - latitudes)*degrees_to_radians
+    theta_values = longitudes*degrees_to_radians
+
+    # Expand phi_values and theta_values into grids
+    theta_1, theta_2 = np.meshgrid(theta_values, theta_values)
+    theta_diff_mat = theta_1 - theta_2
+
+    phi_1, phi_2 = np.meshgrid(phi_values, phi_values)
+
+    # Compute spherical distance from spherical coordinates
+    angle = (np.sin(phi_1) * np.sin(phi_2) * np.cos(theta_diff_mat) +
+             np.cos(phi_1) * np.cos(phi_2))
+    arc = np.arccos(angle)
+
+    # Multiply by earth's radius to obtain distance in km
+    arc[np.diag_indices(arc.shape[0])] = 0
+
+    return(arc * EARTH_RADIUS)
+
+
+def compute_spp_level_R0(df, Cmat, dispersal_ratio, site_dict):
+    """
+    Compute the community-level R0 for all species and sites in df given
+    connectivity matrix and dispersal
+
+    TODO: Remove the year loop. That should be done externally.
+
+    Parameters
+    ---------
+    df : DataFrame
+        DataFrame with the following attributes
+            -site
+            -year
+            -species
+            -load
+            -prev
+            -density
+            -area
+    Cmat : dict of 2D np.array
+        The keys are species names that look up species-specific connectivity
+        matrix. In the connectivity matrix, each entry corresponds to a
+        connectivity probability.
+    disperal_ratio : float
+        The dispersal rate to loss of infection ratio. Assumed constant.
+    site_dict : dict
+        A dictionary that maps site names to the numeric indexes in Cmat[spp]
+
+    Returns
+    -------
+    : DataFrame
+        The dataframe contains
+            - siteyearspecies : identifier for site by year by species
+            - spp_sum : The contribution of the community in a patch to R0_spp
+            - site_sum : The contribution of patches in the network to R0_spp
+            - dispersal_ratio : The dispersal rate to loss rate ratio
+            - R0_spp : Estimated species-level R0
+
+
+    """
+
+    df = df.assign(site_year=df.site + "_" + df.year,
+                   year_spp=df.year + "_" + df.species)
+    site_r0 = []
+
+    # Loop over sites in a given year
+    for s in df.site_year.unique():
+
+        tdf = df[df.site_year == s]
+        site, year = s.split("_")
+        species = tdf.species.values
+        base_area = tdf.area.values[0]
+
+        spp_r0 = []
+
+        for spp in species:
+
+            base_prev = tdf[tdf.species == spp].prev.values[0]
+            base_load = tdf[tdf.species == spp].load.values[0]
+            base_density = tdf[tdf.species == spp].density.values[0]
+
+            # Communty-contribution to R0
+            spp_sum = 0
+            for other_spp in species:
+                other_prev = tdf[tdf.species == other_spp].prev.values[0]
+                other_load = tdf[tdf.species == other_spp].load.values[0]
+                other_density = tdf[tdf.species == other_spp].density.values[0]
+
+                spp_sum = (spp_sum +
+                           (other_load / base_load)
+                           * (other_prev / base_prev)
+                           * (other_density / base_density))
+
+            # Site-level contribution to R0
+            site_sum = 0
+            tyr_spp = df[df.year_spp == (year + "_" + spp)]
+            year_sites = tyr_spp.site.unique()
+
+            for other_site in year_sites:
+                other_prev = tyr_spp[tyr_spp.site == other_site].prev.values[0]
+                other_load = tyr_spp[tyr_spp.site == other_site].load.values[0]
+                other_density = tyr_spp[tyr_spp.site == other_site].density.values[0]
+                other_area = tyr_spp[tyr_spp.site == other_site].area.values[0]
+                connect_val = Cmat[spp][site_dict[site], site_dict[other_site]]
+
+                site_sum = site_sum + (-connect_val
+                                       + connect_val
+                                       * (other_area / base_area)
+                                       * (other_prev / base_prev)
+                                       * (other_density / base_density))
+
+            r0_full = ((1 - dispersal_ratio*site_sum)
+                       / ((1 - base_prev)*spp_sum))
+            spp_r0.append((s + "_" + spp,
+                           spp_sum - 1,
+                           site_sum,
+                           dispersal_ratio,
+                           r0_full))
+
+        site_r0.append(pd.DataFrame(spp_r0, columns=["siteyearspecies",
+                                                     "spp_sum",
+                                                     "site_sum",
+                                                     "dispersal_ratio",
+                                                     "R0_spp"]))
+
+    return(pd.concat(site_r0, axis=0).reset_index(drop=True))
+
+
+def get_connected_sites(latlon, max_dist=2):
+    """
+    Given latlon points, get sub-networks that are connected
+
+    Parameters
+    ----------
+    latlon : DataFrame or array-like
+        DataFrame or array-like with first column lat and second column lon
+    max_dist : float
+        Maximum distance in km beyond which connectivity is 0.
+
+    Returns
+    -------
+    : list of iterables
+        Each iterables gives the indexes for connected populations based on
+        max_dist
+    """
+
+    Cfull = distance_on_sphere_numpy(latlon)
+
+    # Set all distances greater than max_dist to 10
+    Cfull[Cfull >= max_dist] = 10
+
+    # Build a network to understand connectivity
+    connections = [(i, j) for i in range(len(Cfull)) for j in
+                   range(len(Cfull)) if Cfull[i, j] < 10]
+    G = nx.Graph()
+    G.add_nodes_from(list(range(len(Cfull))))
+    G.add_edges_from(connections)
+    connected_sites = list(nx.connected_components(G))
+    return((connected_sites, G))
+
+
+def build_connectivity_matrix(latlon, rate_param=2, max_dist=2):
+    """
+    Probability of connection between two patches
+
+    Parameters
+    ----------
+    latlon : Dataframe
+        With columns Lat, Lon and an index with site names
+    rate_param : float
+        For exponential distance decay
+    max_dist : float
+        The maximum distance in km beyond which the probability of connection
+        is 0.
+
+    Returns
+    -------
+    : (Cmat_prob, site_dict)
+        - Cmat_prob is a site by site matrix with transition probabilities.
+          All diagonals are 0.
+        - site_dict maps a site name onto an index of Cmat_prob
+
+    """
+
+    site_dict = {val: key for key, val in
+                 pd.Series(latlon.index).to_dict().items()}
+
+    Cmat_dist = distance_on_sphere_numpy(latlon.values)
+    Cmat_prob = rate_param * np.exp(-rate_param*Cmat_dist)
+    Cmat_prob[np.diag_indices_from(Cmat_prob)] = 0
+    Cmat_prob[Cmat_dist > max_dist] = 0
+    Cmat_prob = (Cmat_prob.T / Cmat_prob.sum(axis=0)[:, np.newaxis]).T
+    Cmat_prob[np.isnan(Cmat_prob)] = 0
+
+    return((Cmat_prob, site_dict))
+
+
+def landscape_R0(R0_spps, Cmat, λs, bs, As, ϕs, S, P):
+    """
+    Calculate the the landscape-level R0 from data
+
+    Parameters
+    ----------
+
+    R0s: S x P array
+        Each entry is the species-specific R0 for species s in patch p
+    Cmat: P x P array
+        The colonization probabilities c_ij from patch j -> i
+    ϕs: Length S array.
+        The dispersal rates for each species
+    bs: S x P array
+        Relative loss rates of infecteds for each species in a patch
+    λs: S x P array
+        Relative shedding rates for each species in a patch
+    As : array-like of length P
+        Relative patch areas
+    S: int
+        Number of species
+    P: int
+        Number of patches
+
+    Returns
+    -------
+    : dict
+        - "K": S*P x S*P matrix K. The matrix is ordered by patch and then by
+        species. In other words, K[:S, :S] are all species in the first patch.
+        maxeig(K) = landscape R0.
+        - "R": Component of K
+        - "B": Component of K
+
+    """
+
+    # Build the R matrix
+    R = build_R_with_data(R0_spps, bs, λs, S, P)
+    B = build_B_with_data(Cmat, As, ϕs, bs, S, P)
+    K = np.dot(R, np.linalg.inv(-1 * B))
+
+    return({'K': K, 'R': R, 'B': B})
+
+
+def build_R_with_data(R0s, bs, λs, S, P):
+    """ Build the R matrix for calculating landscape-level R0
+
+    See landscape_R0 for parameter definitions
+    """
+
+    fullR = np.zeros((S*P, S*P))
+    for p in range(P):
+        tR0 = R0s[:, p]
+        Rmat = np.repeat(tR0, S).reshape(S, S)
+        tb = bs[:, p]
+        bmat = np.repeat(tb, S).reshape(S, S)
+        tλ = λs[:, p]
+        λmat = np.repeat(tλ, S).reshape(S, S).T
+        λ_ratios = λmat / λmat.T
+        Rmat = Rmat * bmat * λ_ratios
+        Rmat[np.isnan(Rmat)] = 0
+        Rmat[np.isinf(Rmat)] = 0
+        start = p*S
+        stop = start + S
+        fullR[start:stop, start:stop] = Rmat
+
+    return(fullR)
+
+
+def build_B_with_data(Cmat, As, ϕs, bs, S, P):
+    """
+    Build the B matrix with data
+
+    See landscape_R0 for parameter definitions
+    """
+
+    Cmat_axis = np.atleast_1d(Cmat.sum(axis=0))
+    diag_matrices = np.empty((P, P)).astype(np.object)
+
+    # Loop over columns
+    for p in range(P):
+
+        # Loop over rows
+        for j in range(P):
+
+            tZ = np.zeros((S, S)).astype(np.int).astype(object)
+            if p == j:
+                # Build the diagonal matrix
+                new_diag = -1*bs[:, p] - ϕs*Cmat_axis[p]
+            else:
+                # Build the p -> j transitions
+                new_diag = ϕs * Cmat[j, p] * (As[p]/As[j])
+
+            tZ[np.diag_indices(S)] = new_diag
+            diag_matrices[j, p] = tZ
+
+    tBs = []
+    for j in range(P):
+        tBs.append(np.concatenate(diag_matrices[:, j], axis=0))
+    B = np.concatenate(tBs, axis=1).astype(np.float)
+
+    return(B)
