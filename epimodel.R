@@ -169,6 +169,7 @@ for (t in 1:time) {
   delta_s_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   delta_I_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp)
+  r0_patch <- matrix(nrow = num_patches, ncol = num_patches)
   B <- matrix(nrow = num_patches, ncol = num_patches)
   
   for (p in 1:num_patches) {
@@ -190,8 +191,9 @@ for (t in 1:time) {
           delta_I <- FI - loss_I + connectivity_I
           delta_I_matrix[p,i] <- delta_I
           
-          #parameters to calc R0
+          #parameters to calc R0. Need help from mark to get this to run
           r0_species_patch[p,j] <-  ifelse(N[p,j] > 0, FI/loss_I, 0)
+          r0_patch[p,q] <- ifelse(p == q, mean(r0_species_patch, na.rm = T),0) 
           DP <- matrix(data = ifelse(i == j, -(v[i]*d[i]) - phi[i], 0),
                        nrow = num_spp, ncol = num_spp)
           EIP <- matrix(data = ifelse(i == j,(A[p]/A[q])*c[p,q]*psi[i],0),
@@ -208,9 +210,9 @@ for (t in 1:time) {
   # t = t
   pop <- list(Susceptible = S, Infectious = I, Total = N, Time = t)
   pop_list_Freq[[t]] <- pop
-  beta <- betadiver(N, method = 'w')
-  r0_landscape <- eigen(r0_species_patch *(-B^-1))[1]
-  dilute_effect[i,1] <- beta
+  beta_diversity <- betadiver(N, method = 'w')
+  r0_landscape <- eigen(r0_patch * (-B^(-1)))[1]
+  dilute_effect[i,1] <- mean(beta_diversity, na.rm =T)
   dilute_effect[i,2] <- r0_landscape
 }
 
