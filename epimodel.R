@@ -5,8 +5,57 @@
 
 #Initialize -----------------------------------------
 library(vegan)
+library(matlib)
+library(epimdr2)
 source('Occu_abun_practice.R')
 set.seed(1234)
+
+# Define Fucntions------------------------------------
+#######################################################
+# FUNCTION: build_R_with_data
+# Purpose:
+#input:R0s, b, beta, S, P
+#R0s = An SxP Matrix with the species species specific R0 at each patch
+# b = An SxP matrix. The relative loss rate of infecteds for each species in a patch
+# beta = an SxS matrix. The transmission coefficient between species i and species j
+# S = number of species
+# P = number of patches
+#output: fullR.an S*P by S*P matrix. 
+#-----------------------------------------------------
+build_R_with_data <- function(R0s,b,beta,S,P) {
+  fullR <- matrix(nrow = s*P, ncol = S*P)
+  for (p in 1:P) {
+    tR0 <- R0s[,p]
+    Rmat <- matrix(data = rep(tR0,S), nrow = S, ncol = S)
+    tb <- b[,p]
+    bmat <- matrix(data = rep(tb,S), nrow = S, ncol = S)
+    # I have removed the following code (in .py) but should ask mark if I need to add something for
+    # Force of infection
+    # tλ = λs[:, p]
+    # λmat = np.repeat(tλ, S).reshape(S, S).T
+    # λ_ratios = λmat / λmat.T    
+    Rmat <- Rmat * bmat
+    Rmat[is.nan(Rmat)] = 0
+    Rmat[is.infinte(Rmat)] = 0
+    start = p*S
+    stop = start + S
+    fullR[start:stop, start:stop] = Rmat
+  }
+  return(fullR)
+}
+
+#######################################################
+# FUNCTION: build_B_with_data
+# Purpose: Cmat, As, psi, b, S, P
+# Cmat = 
+#input:
+#output:
+#-----------------------------------------------------
+build_B_with_data <- function(Cmat, As = 1, psi, b, S, P) {
+  message("testing...build_B_with_data")
+}
+
+
 ########################################
 ### Environmental Pool model
 #######################################
@@ -78,8 +127,8 @@ source('Occu_abun_practice.R')
 
 # Parameters-------------------------------------
 #starting values
-S <- ceiling(meta_comm1[,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #starting value of susceptibles
-I <- meta_comm1[,1:6] - S #starting value of infecteds
+S <- ceiling(meta_comm_list[[1]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #starting value of susceptibles
+I <- meta_comm_list[[1]][,1:6] - S #starting value of infecteds
 N <- S+I
 time <- 90 #how many "days" do I want in the season
 
@@ -151,7 +200,7 @@ c <- matrix(data = rnorm(n = num_patches^2, mean = 0.5, sd = 0.1),
             nrow = num_patches, 
             ncol = num_patches)
 #Connectivity of patches
-A <- rnorm(n = num_patches, mean = 0.5, sd = 0.1) #area ratios
+#A <- rnorm(n = num_patches, mean = 0.5, sd = 0.1) #area ratios
 
 
 # Program Body------------------------------------------
@@ -162,8 +211,10 @@ pop_list_Freq <- vector("list", length = time)
 dilute_effect <- data.frame(matrix(data = NA, nrow = time, ncol = 2))
 
 
-
-
+#params for next generation matrix model
+istates <- "I"
+flist <- quote(beta * S * I/N)
+Vlist <- quote(
 
 for (t in 1:time) {
   delta_s_matrix <- matrix(nrow = num_patches, ncol = num_spp)
@@ -177,8 +228,8 @@ for (t in 1:time) {
       for (i in 1:num_spp) {
         for (j in 1:num_spp) {
           #establish parameters for time t of species s
-          connectivity_s <- phi[i]*sum(-c[p,q]*S[p,i] + c[q,p]*S[q,i]*(A[p]/A[q]))
-          connectivity_I <- phi[i]*sum(-c[p,q]*I[p,i] + c[q,p]*I[q,i]*(A[p]/A[q]))
+          connectivity_s <- phi[i]*sum(-c[p,q]*S[p,i] + c[q,p]*S[q,i])
+          connectivity_I <- phi[i]*sum(-c[p,q]*I[p,i] + c[q,p]*I[q,i])
           birth <- b[i]*N[p,i]
           death_s <- d[i]*S[p,i]
           loss_I <- (v[i]*d[i])*I[p,i]
@@ -191,6 +242,7 @@ for (t in 1:time) {
           delta_I <- FI - loss_I + connectivity_I
           delta_I_matrix[p,i] <- delta_I
           
+<<<<<<< HEAD
           #parameters to calc R0. Need help from mark to get this to run
           r0_species_patch[p,j] <-  ifelse(N[p,j] > 0, FI/loss_I, 0)
           r0_patch[p,q] <- ifelse(p == q, mean(r0_species_patch, na.rm = T),0) 
@@ -199,6 +251,17 @@ for (t in 1:time) {
           EIP <- matrix(data = ifelse(i == j,(A[p]/A[q])*c[p,q]*psi[i],0),
                         nrow = num_spp, ncol = num_spp)
           B[p,q] <- ifelse(p == q, DP, EIP)
+=======
+          #parameters to calc R0
+          # r0_species_patch[p,j] <-  ifelse(N[p,j] > 0, FI/loss_I, 0)
+          # DP <- matrix(data = ifelse(i == j, -(v[i]*d[i]) - phi[i], 0),
+          #              nrow = num_spp, ncol = num_spp)
+          # EIP <- matrix(data = ifelse(i == j,c[p,q]*psi[i],0),
+          #               nrow = num_spp, ncol = num_spp)
+          # B[p,q] <- ifelse(p == q, DP, EIP)
+          F_mat <- matrix(data = c(0,beta[i,j]/v[i],0,0), nrow = 2, ncol = 2)
+          v_mat <- matrix(data = c(v[i],0,0,v[i]), nrow = 2, ncol = 2)
+>>>>>>> bd4399cb88c855e0557883052ca933dac4489bf0
         }
       }
     }
@@ -210,9 +273,16 @@ for (t in 1:time) {
   # t = t
   pop <- list(Susceptible = S, Infectious = I, Total = N, Time = t)
   pop_list_Freq[[t]] <- pop
+<<<<<<< HEAD
   beta_diversity <- betadiver(N, method = 'w')
   r0_landscape <- eigen(r0_patch * (-B^(-1)))[1]
   dilute_effect[i,1] <- mean(beta_diversity, na.rm =T)
+=======
+  betadiver <- betadiver(N, method = 'w')
+  #r0_landscape <- eigen(r0_species_patch *(-inv(B)))[1]
+  F_mat <- matrix
+  dilute_effect[i,1] <- betadiver
+>>>>>>> bd4399cb88c855e0557883052ca933dac4489bf0
   dilute_effect[i,2] <- r0_landscape
 }
 
