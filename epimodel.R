@@ -5,30 +5,31 @@
 
 #Initialize -----------------------------------------
 library(vegan)
-library(matlib)
-library(epimdr2)
+library(tidyverse)
 source('Occu_abun_practice.R')
 set.seed(1234)
 
 # Define Fucntions------------------------------------
 #######################################################
 # FUNCTION: build_R_with_data
-# Purpose:
+# Purpose: to calculate R matrix with data
 #input:R0s, b, beta, S, P
-#R0s = An SxP Matrix with the species species specific R0 at each patch
-# b = An SxP matrix. The relative loss rate of infecteds for each species in a patch
+#R0s = An Pxs Matrix with the species species specific R0 at each patch
+# b = An PxS matrix. The relative loss rate of infecteds for each species in a patch
 # beta = an SxS matrix. The transmission coefficient between species i and species j
 # S = number of species
 # P = number of patches
 #output: fullR.an S*P by S*P matrix. 
 #-----------------------------------------------------
+S <- num_spp
+P <- num_patches
 build_R_with_data <- function(R0s,b,beta,S,P) {
-  fullR <- matrix(nrow = s*P, ncol = S*P)
+  fullR <- matrix(data = 0, nrow = P*S, ncol = P*S)
   for (p in 1:P) {
-    tR0 <- R0s[,p]
-    Rmat <- matrix(data = rep(tR0,S), nrow = S, ncol = S)
-    tb <- b[,p]
-    bmat <- matrix(data = rep(tb,S), nrow = S, ncol = S)
+    tR0 <- R0s[p,]
+    Rmat <- matrix(data = rep(unlist(tR0),S), nrow = S, ncol = S)
+    tb <- b[p,]
+    bmat <- matrix(data = rep(unlist(tb),S), nrow = S, ncol = S)
     # I have removed the following code (in .py) but should ask mark if I need to add something for
     # Force of infection
     # tλ = λs[:, p]
@@ -36,26 +37,114 @@ build_R_with_data <- function(R0s,b,beta,S,P) {
     # λ_ratios = λmat / λmat.T    
     Rmat <- Rmat * bmat
     Rmat[is.nan(Rmat)] = 0
-    Rmat[is.infinte(Rmat)] = 0
-    start = p*S
-    stop = start + S
-    fullR[start:stop, start:stop] = Rmat
+    Rmat[is.infinite(Rmat)] = 0
+    Rmat <- as.matrix(Rmat)
+    start <- ifelse(p == 1, p,(S*p)-(S-1))
+    stop <- start + S - 1
+    fullR[start:stop, start:stop] <- Rmat
   }
+  
   return(fullR)
 }
 
 #######################################################
 # FUNCTION: build_B_with_data
-# Purpose: Cmat, As, psi, b, S, P
-# Cmat = 
-#input:
+# Purpose: To calculate B matrix with data
+# input:Cmat, As, psi, b, S, P
+# Cmat = A pXp matrix. Colonization probability c_ij from patch j -> i
+# As = relative patch areas (set at 1)
+# phi = dispersal rate for each species.
+# b = a SxP matrix. Relative loss rates of infected for each species
+# S = int. number of species
+# P = int. number of patches
+#
 #output:
 #-----------------------------------------------------
-build_B_with_data <- function(Cmat, As = 1, psi, b, S, P) {
-  message("testing...build_B_with_data")
+Cmat <- c
+build_B_with_data <- function(Cmat, phi, b, S, P) {
+  Cmat_axis <- colSums(Cmat)
+  diag_list <- vector("list",P^2)
+  diag_list_names <- array(dim = c(sqrt(length(diag_list)), sqrt(length(diag_list))))
+  for (p in 1:P) { #loop over columns
+    for (j in 1:P) { #loop over rows
+      diag_list_names[j,p] <- paste(p,j,sep="_")
+    }
+  }
+  diag_list_names <- as.vector(diag_list_names)
+  names(diag_list) <- diag_list_names
+  for (p in 1:P) { #loop over columns
+    for (j in 1:P) { #loop over rows
+      tZ <- matrix(0,nrow = S, ncol = S)
+      new_diag <- array(dim = S)
+      new_diag <- if(p == j){
+        (-1)*b[p,] - phi*Cmat_axis[p]
+        } else{
+          phi*Cmat[j,p]
+          }
+      diag(tZ) <- new_diag
+      x <- paste(p,j,sep="_")
+      diag_list[[x]] <- tZ 
+    }
+  }
+  diag_matrix <- matrix(diag_list, nrow = P, ncol = P)
+  tB <- list()
+  for (j in 1:P) {
+    tB[[j]] <- matrix(data = unlist(diag_matrix[j,]), nrow = S*P, ncol = S, byrow = T) #looks like this worked!
+  }
+  
+  B <- do.call(cbind, tB[1:P]) #need to determine if this is what B should look like
+  return(B) 
 }
 
+####################################################################
+# Function: landscape_R0
+# Purpose: Calculate the landscape level R0 from the data
+#Input: R0s, Cmat, phi, b, S, P
+# R0s_spps = SxP matrix. Each entry is the species-specific R0 for species s in patch p
+# Cmat = a PxP matrix. The colonization probabilities c_ij from patch j -> i
+# phi = an array of length S. The dispersal rates for each species
+# b = An SxP array. Relative loss rates of infecteds for each species in a patch
+# beta = a transmission coefficient between species
+# S = int. Number of species
+# P = int. Number of patches
+#Output: K. an S*P x S*P matrix. The matrix should be ordered by patch then by species. max eigenvalue of K = landscape R0.
+# R, a component of K, and B, a component of K
+landscape_R0 <- function(R0_spps,Cmat,b, beta, phi,S,P){
+  R <- build_R_with_data(R0s = R0_spps,
+                         b = b,
+                         beta = beta,
+                         S = S,
+                         P = P)
+  B <- build_B_with_data(Cmat = Cmat,
+                         phi = phi,
+                         b = b,
+                         S = S,
+                         P = P)
+  K <- R %*% solve(-1*B)
+  return(list(K = K, R = R, B = B))
+}
 
+# Practice
+R0s <- matrix(data = rnorm(n = num_spp*num_patches, mean = 1, sd = 0.1), nrow = num_patches, ncol = num_spp)
+b <- matrix(data = rnorm(n = num_spp*num_patches, mean = 1, sd = 0.1), nrow = num_patches, ncol = num_spp)
+r <- build_R_with_data(R0s = R0s,
+                       b = b,
+                       beta = beta,
+                       S = num_spp,
+                       P = num_patches)
+B <-build_B_with_data(Cmat = c,
+                      phi = phi,
+                      b = b,
+                      S = S,
+                      P = P) 
+K <- landscape_R0(R0_spps = R0s,
+                  Cmat = c,
+                  b = b, 
+                  beta = beta, 
+                  phi = phi,
+                  S = S,
+                  P = P)
+eigen(K[[1]])$values[1]
 ########################################
 ### Environmental Pool model
 #######################################
@@ -122,7 +211,6 @@ View(pop_data_EP)
 ########################################
 ### Frequency dependent model ###
 #######################################
-rm(list = ls())
 source('Occu_abun_practice.R')
 
 # Parameters-------------------------------------
@@ -187,6 +275,37 @@ species_chara <- data.frame(Species = Species,
                             recovery = v, 
                             dispersal = phi)
 ### Transmission coefficient
+# beta should be higher for intraspecific transmission than interspecific
+#inter-specific should have higher rate from more competent species
+# Most abundant species should have highest interspecific trans rates
+# For now, keeping transmission from 1 spp -> all other spp the same
+#Ex: P Regilla will have the same transmission to A Boreas, T. Taricha... R Draytonii
+# We are using a beta distribution b/c that is the best for the probability scale
+# we need to assign probabilities to each species
+trans_rate <- function(n = 1,x = seq(0,1,length = 21),a,b){
+  trans <- rbeta(n = n, shape1 = a, shape2 = b)
+  plot(dbeta(x, shape1 = a, shape2 = b))
+  return(intra)
+}
+# PREG
+intra_PREG <- trans_rate(a = 5,b = 2)
+inter_PREG <- trans_rate(a = 3, b = 2)
+
+plot(dbeta(x,shape1 = 5,shape2 = 2), ylab = "density", type = 'l', col = "red")
+lines(x, dbeta(x, shape1 = 3, shape2 = 2), col = "blue")
+
+
+# TGRAN
+intra_TGRAN <- trans_rate(a = 3, b = 1.5)
+inter_TGRAN <- trans_rate(a = 3, b = 2.5)
+
+#TTOR
+intra_TTOR <- trans_rate(a = 3, b = 2)
+inter_TTOR <- trans_rate(a = 3, b = 2.75)
+
+#ABOR
+intra_ABOR <- trans_rate(a=3,b=1.75)
+
 beta <- matrix(data = NA, nrow = num_spp, ncol = num_spp)
 for (i in 1:nrow(beta)) {
   for (j in 1:ncol(beta)) {
@@ -209,12 +328,6 @@ I <- as.matrix(I)
 N <- as.matrix(N)
 pop_list_Freq <- vector("list", length = time)
 dilute_effect <- data.frame(matrix(data = NA, nrow = time, ncol = 2))
-
-
-#params for next generation matrix model
-istates <- "I"
-flist <- quote(beta * S * I/N)
-Vlist <- quote(
 
 for (t in 1:time) {
   delta_s_matrix <- matrix(nrow = num_patches, ncol = num_spp)
@@ -242,7 +355,6 @@ for (t in 1:time) {
           delta_I <- FI - loss_I + connectivity_I
           delta_I_matrix[p,i] <- delta_I
           
-<<<<<<< HEAD
           #parameters to calc R0. Need help from mark to get this to run
           r0_species_patch[p,j] <-  ifelse(N[p,j] > 0, FI/loss_I, 0)
           r0_patch[p,q] <- ifelse(p == q, mean(r0_species_patch, na.rm = T),0) 
@@ -251,7 +363,6 @@ for (t in 1:time) {
           EIP <- matrix(data = ifelse(i == j,(A[p]/A[q])*c[p,q]*psi[i],0),
                         nrow = num_spp, ncol = num_spp)
           B[p,q] <- ifelse(p == q, DP, EIP)
-=======
           #parameters to calc R0
           # r0_species_patch[p,j] <-  ifelse(N[p,j] > 0, FI/loss_I, 0)
           # DP <- matrix(data = ifelse(i == j, -(v[i]*d[i]) - phi[i], 0),
@@ -261,7 +372,6 @@ for (t in 1:time) {
           # B[p,q] <- ifelse(p == q, DP, EIP)
           F_mat <- matrix(data = c(0,beta[i,j]/v[i],0,0), nrow = 2, ncol = 2)
           v_mat <- matrix(data = c(v[i],0,0,v[i]), nrow = 2, ncol = 2)
->>>>>>> bd4399cb88c855e0557883052ca933dac4489bf0
         }
       }
     }
@@ -273,16 +383,13 @@ for (t in 1:time) {
   # t = t
   pop <- list(Susceptible = S, Infectious = I, Total = N, Time = t)
   pop_list_Freq[[t]] <- pop
-<<<<<<< HEAD
   beta_diversity <- betadiver(N, method = 'w')
   r0_landscape <- eigen(r0_patch * (-B^(-1)))[1]
   dilute_effect[i,1] <- mean(beta_diversity, na.rm =T)
-=======
   betadiver <- betadiver(N, method = 'w')
   #r0_landscape <- eigen(r0_species_patch *(-inv(B)))[1]
   F_mat <- matrix
   dilute_effect[i,1] <- betadiver
->>>>>>> bd4399cb88c855e0557883052ca933dac4489bf0
   dilute_effect[i,2] <- r0_landscape
 }
 
