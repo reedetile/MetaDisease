@@ -6,6 +6,8 @@
 #Initialize -----------------------------------------
 library(vegan)
 library(tidyverse)
+library(ggplot2)
+library(RColorBrewer)
 source('Occu_abun_practice.R')
 set.seed(1234)
 
@@ -21,8 +23,7 @@ set.seed(1234)
 # P = number of patches
 #output: fullR.an S*P by S*P matrix. 
 #-----------------------------------------------------
-S <- num_spp
-P <- num_patches
+
 build_R_with_data <- function(R0s,b,beta,S,P) {
   fullR <- matrix(data = 0, nrow = P*S, ncol = P*S)
   for (p in 1:P) {
@@ -60,7 +61,6 @@ build_R_with_data <- function(R0s,b,beta,S,P) {
 #
 #output:
 #-----------------------------------------------------
-Cmat <- c
 build_B_with_data <- function(Cmat, phi, b, S, P) {
   Cmat_axis <- colSums(Cmat)
   diag_list <- vector("list",P^2)
@@ -124,14 +124,30 @@ landscape_R0 <- function(R0_spps,Cmat,b, beta, phi,S,P){
   return(list(K = K, R = R, B = B))
 }
 
-# Practice
-R0s <- matrix(data = rnorm(n = num_spp*num_patches, mean = 1, sd = 0.1), nrow = num_patches, ncol = num_spp)
-b <- matrix(data = rnorm(n = num_spp*num_patches, mean = 1, sd = 0.1), nrow = num_patches, ncol = num_spp)
+# Example of using the 3 functions
+S <- 6 #number of species
+P <- 5 #number of patches
+R0s <- matrix(data = rnorm(n = S*P, mean = 1, sd = 0.1), nrow = P, ncol = S)
+b <- matrix(data = rnorm(n = S*P, mean = 1, sd = 0.1), nrow = P, ncol = S)
+phi <- rnorm(n = 6, mean = 0.5, sd = 0.1)
+#transmission
+beta <- matrix(data = NA, nrow = S, ncol = S)
+for (i in 1:nrow(beta)) {
+  for (j in 1:ncol(beta)) {
+    beta[i,j] <- ifelse(i == j, rbeta(n = 1, shape1 = 2, shape2 = 10),rbeta(n = 1, shape1 = 1, shape2 = 1)) 
+  }
+}
+#connectivity
+c <- matrix(data = rnorm(n = P^2, mean = 0.5, sd = 0.1),
+                 nrow = P, 
+                 ncol = P)
+
+
 r <- build_R_with_data(R0s = R0s,
                        b = b,
                        beta = beta,
-                       S = num_spp,
-                       P = num_patches)
+                       S = S,
+                       P = P)
 B <-build_B_with_data(Cmat = c,
                       phi = phi,
                       b = b,
@@ -282,29 +298,75 @@ species_chara <- data.frame(Species = Species,
 #Ex: P Regilla will have the same transmission to A Boreas, T. Taricha... R Draytonii
 # We are using a beta distribution b/c that is the best for the probability scale
 # we need to assign probabilities to each species
-trans_rate <- function(n = 1,x = seq(0,1,length = 21),a,b){
+x <- seq(0,1,length = 100)
+trans_rate <- function(n = 1,x = seq(0,1,length = 100),a,b){
   trans <- rbeta(n = n, shape1 = a, shape2 = b)
-  plot(dbeta(x, shape1 = a, shape2 = b))
-  return(intra)
+  plot(x = seq(0,1, length.out = 100), y = dbeta(x, shape1 = a, shape2 = b))
+  return(trans)
 }
-# PREG
-intra_PREG <- trans_rate(a = 5,b = 2)
-inter_PREG <- trans_rate(a = 3, b = 2)
 
-plot(dbeta(x,shape1 = 5,shape2 = 2), ylab = "density", type = 'l', col = "red")
-lines(x, dbeta(x, shape1 = 3, shape2 = 2), col = "blue")
+
+# PREG
+intra_PREG <- trans_rate(a = 4,b = 2)
+inter_PREG <- trans_rate(a = 4, b = 2.5)
+
+plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 4, shape2 = 2.5), col = "blue")
 
 
 # TGRAN
-intra_TGRAN <- trans_rate(a = 3, b = 1.5)
-inter_TGRAN <- trans_rate(a = 3, b = 2.5)
+intra_TGRAN <- trans_rate(a = 4, b = 2.25)
+inter_TGRAN <- trans_rate(a = 4, b = 2.5)
+
+plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.25), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 4, shape2 = 2.5), col = "blue")
 
 #TTOR
-intra_TTOR <- trans_rate(a = 3, b = 2)
+intra_TTOR <- trans_rate(a = 3, b = 2.5)
 inter_TTOR <- trans_rate(a = 3, b = 2.75)
 
+plot(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.5), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 3, shape2 = 2.75), col = "blue")
+
 #ABOR
-intra_ABOR <- trans_rate(a=3,b=1.75)
+intra_ABOR <- trans_rate(a = 2.5, b = 2.75)
+inter_ABOR <- trans_rate(a = 2.5, b = 3.0)
+
+plot(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 2.75), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 2.5, shape2 = 3.0), col = "blue")
+
+#RCAT
+intra_ABOR <- trans_rate(a = 2.0, b = 3.0)
+inter_ABOR <- trans_rate(a = 2.0, b = 3.25)
+
+plot(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.0), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 2.0, shape2 = 3.25), col = "blue")
+
+#RDRAY
+intra_RDRAY <- trans_rate(a = 1.5, b = 3.25)
+inter_RDRAY <- trans_rate(a = 1.5, b = 3.5)
+
+plot(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.25), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 1.5, shape2 = 3.5), col = "blue")
+
+#let's plot all the intraspecific trans rate just to see
+plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.0), ylab = "density", type = 'l', col = "black") #PREG
+lines(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.25), col = "red") #TGRAN
+lines(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.5), col = "blue") #TTOR
+lines(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 2.75), col = "cyan4") #ABOR
+lines(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.0), col = "blueviolet") #RCAT
+lines(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.25), col = "deeppink") #RDRAY
+
+#let's plot all the interspecific trans rate just to see
+plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.5), ylab = "density", type = 'l', col = "black") #PREG
+lines(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.5), col = "red") #TGRAN
+lines(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.75), col = "blue") #TTOR
+lines(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 3.0), col = "cyan4") #ABOR
+lines(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.25), col = "blueviolet") #RCAT
+lines(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.5), col = "deeppink") #RDRAY
+
+
+
 
 beta <- matrix(data = NA, nrow = num_spp, ncol = num_spp)
 for (i in 1:nrow(beta)) {
