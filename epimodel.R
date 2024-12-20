@@ -7,7 +7,6 @@
 library(vegan)
 library(tidyverse)
 library(ggplot2)
-library(RColorBrewer)
 source('Occu_abun_practice.R')
 set.seed(1234)
 
@@ -336,8 +335,8 @@ plot(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 2.75), ylab = "density", type = 'l'
 lines(x=x, dbeta(x, shape1 = 2.5, shape2 = 3.0), col = "blue")
 
 #RCAT
-intra_ABOR <- trans_rate(a = 2.0, b = 3.0)
-inter_ABOR <- trans_rate(a = 2.0, b = 3.25)
+intra_RCAT <- trans_rate(a = 2.0, b = 3.0)
+inter_RCAT <- trans_rate(a = 2.0, b = 3.25)
 
 plot(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.0), ylab = "density", type = 'l', col = "red")
 lines(x=x, dbeta(x, shape1 = 2.0, shape2 = 3.25), col = "blue")
@@ -371,15 +370,34 @@ lines(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.5), col = "deeppink") #RDRAY
 beta <- matrix(data = NA, nrow = num_spp, ncol = num_spp)
 for (i in 1:nrow(beta)) {
   for (j in 1:ncol(beta)) {
-    beta[i,j] <- ifelse(i == j, rbeta(n = 1, shape1 = 2, shape2 = 10),rbeta(n = 1, shape1 = 1, shape2 = 1)) #need to make this more realistic
+    beta[i,j] <- if(i == 1 & j == 1){
+      intra_PREG}else if(i != 1 & j == 1){
+        inter_PREG} else if(i == 2 & j == 2){
+          intra_TGRAN} else if(i != 2 & j == 2){
+            inter_TGRAN} else if(i == 3 & j == 3){
+              intra_TTOR} else if(i != 3 & j == 3){
+                inter_TTOR} else if(i == 4 & j == 4){
+                  intra_ABOR} else if(i != 4 & j == 4){
+                    inter_ABOR} else if(i == 5 & j == 5){
+                      intra_RCAT} else if(i != 5 & j ==5){
+                        inter_RCAT} else if(i == 6 & j == 6){
+                          intra_RDRAY} else if(i != 6 & j == 6){
+                            inter_RDRAY}
   }
 }
 
 
 # meta-community characteristics
-c <- matrix(data = rnorm(n = num_patches^2, mean = 0.5, sd = 0.1),
+stay <- rbeta(n = 1, shape1 = 4, shape2 = 2) #probability individuals stay in a patch?
+go <- rbeta(n = 1, shape1 = 1.5, shape2 = 3.5) # probability individuals move
+c <- matrix(data = NA,
             nrow = num_patches, 
             ncol = num_patches)
+for(i in 1:ncol(c)){
+  for(j in 1:nrow(c)){
+    c[i,j] <- ifelse(i == j, stay, go)
+  }
+}
 #Connectivity of patches
 #A <- rnorm(n = num_patches, mean = 0.5, sd = 0.1) #area ratios
 
