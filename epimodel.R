@@ -152,14 +152,15 @@ B <-build_B_with_data(Cmat = c,
                       b = b,
                       S = S,
                       P = P) 
-K <- landscape_R0(R0_spps = R0s,
+K2 <- landscape_R0(R0_spps = R0s,
                   Cmat = c,
                   b = b, 
                   beta = beta, 
                   phi = phi,
                   S = S,
                   P = P)
-eigen(K[[1]])$values[1]
+eigen(K2[[1]])$values[1]
+View(K2[[1]])
 ########################################
 ### Environmental Pool model
 #######################################
@@ -388,6 +389,7 @@ for (i in 1:nrow(beta)) {
 
 
 # meta-community characteristics
+#Connectivity of patches
 stay <- rbeta(n = 1, shape1 = 4, shape2 = 2) #probability individuals stay in a patch?
 go <- rbeta(n = 1, shape1 = 1.5, shape2 = 3.5) # probability individuals move
 c <- matrix(data = NA,
@@ -398,7 +400,7 @@ for(i in 1:ncol(c)){
     c[i,j] <- ifelse(i == j, stay, go)
   }
 }
-#Connectivity of patches
+
 #A <- rnorm(n = num_patches, mean = 0.5, sd = 0.1) #area ratios
 
 
@@ -413,9 +415,7 @@ for (t in 1:time) {
   delta_s_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   delta_I_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp)
-  r0_patch <- matrix(nrow = num_patches, ncol = num_patches)
-  B <- matrix(nrow = num_patches, ncol = num_patches)
-  
+  b <- matrix(nrow = num_patches, ncol = num_spp)
   for (p in 1:num_patches) {
     for(q in 1:num_patches){
       for (i in 1:num_spp) {
@@ -435,23 +435,22 @@ for (t in 1:time) {
           delta_I <- FI - loss_I + connectivity_I
           delta_I_matrix[p,i] <- delta_I
           
-          #parameters to calc R0. Need help from mark to get this to run
-          r0_species_patch[p,j] <-  ifelse(N[p,j] > 0, FI/loss_I, 0)
-          r0_patch[p,q] <- ifelse(p == q, mean(r0_species_patch, na.rm = T),0) 
-          DP <- matrix(data = ifelse(i == j, -(v[i]*d[i]) - phi[i], 0),
-                       nrow = num_spp, ncol = num_spp)
-          EIP <- matrix(data = ifelse(i == j,(A[p]/A[q])*c[p,q]*psi[i],0),
-                        nrow = num_spp, ncol = num_spp)
-          B[p,q] <- ifelse(p == q, DP, EIP)
-          #parameters to calc R0
-          # r0_species_patch[p,j] <-  ifelse(N[p,j] > 0, FI/loss_I, 0)
-          # DP <- matrix(data = ifelse(i == j, -(v[i]*d[i]) - phi[i], 0),
-          #              nrow = num_spp, ncol = num_spp)
-          # EIP <- matrix(data = ifelse(i == j,c[p,q]*psi[i],0),
-          #               nrow = num_spp, ncol = num_spp)
-          # B[p,q] <- ifelse(p == q, DP, EIP)
-          F_mat <- matrix(data = c(0,beta[i,j]/v[i],0,0), nrow = 2, ncol = 2)
-          v_mat <- matrix(data = c(v[i],0,0,v[i]), nrow = 2, ncol = 2)
+          #calculate R0 for each species at each patch
+          b[p,i] <- v[i]*d[i] #gets loss rate
+          Prev_prop <- ifelse(N[q,i] > 0 & N[p,i] > 0, 
+                              (I[q,i]/N[q,i])/ (I[p,i]/N[p,i]), 0)
+          r0_numerator <- ifelse(N[p,i] > 0,
+                                 1 + phi[i]/b[p,i]*sum(c[p,q]-c[q,p]*Prev_prop*(N[q,i]/N[p,i])),
+                                 0)
+          r0_denominator <- ifelse(N[p,i] > 0 & sum(N[p,]) > 0 & N[p,j] > 0,
+                                   (1 - (I[p,i]/N[p,i]))*
+                                     (N[p,i]/sum(N[p,]))*
+                                     sum((beta[i,j]/beta[i,i])*
+                                           (N[p,j]/N[p,i])*
+                                           ((I[p,j]/N[p,j])/(I[p,i]/N[p,i]))),0)
+          r0_species_patch[p,i] <- ifelse(r0_denominator > 0, 
+                                          r0_numerator/r0_denominator,
+                                          0)
         }
       }
     }
@@ -464,15 +463,22 @@ for (t in 1:time) {
   pop <- list(Susceptible = S, Infectious = I, Total = N, Time = t)
   pop_list_Freq[[t]] <- pop
   beta_diversity <- betadiver(N, method = 'w')
-  r0_landscape <- eigen(r0_patch * (-B^(-1)))[1]
+  r0_landscape <- landscape_R0(R0_spps = r0_species_patch,
+                               Cmat = c,
+                               b = b,
+                               beta = beta,
+                               phi = phi,
+                               S = num_spp,
+                               P = num_patches)
+  
   dilute_effect[i,1] <- mean(beta_diversity, na.rm =T)
-  betadiver <- betadiver(N, method = 'w')
-  #r0_landscape <- eigen(r0_species_patch *(-inv(B)))[1]
-  F_mat <- matrix
-  dilute_effect[i,1] <- betadiver
-  dilute_effect[i,2] <- r0_landscape
+  dilute_effect[i,2] <- eigen(r0_landscape[[1]])$values[1]
 }
 
+# R0s_spps = SxP matrix. Each entry is the species-specific R0 for species s in patch p
+# Cmat = a PxP matrix. The colonization probabilities c_ij from patch j -> i
+# phi = an array of length S. The dispersal rates for each species
+# b = An SxP array. Relative loss rates of infecteds for each species in a patch
 pop_data_Freq <- lapply(pop_list_Freq, as.data.frame)
 View(pop_data_Freq[[1]]) #example of dataframe at time 1
 View(pop_data_Freq[[90]])  #example of dataframe at time 90
