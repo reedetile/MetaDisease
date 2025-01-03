@@ -1,0 +1,52 @@
+---
+title: "Report01022025"
+author: "Reed Scott"
+date: "2025-01-02"
+output: html_document
+---
+
+Hi Mark!
+
+I am working on my epidiomoligcal model and have run in to a bit of a snag I was hoping you could help
+with. Specifically, *right now I am trying to calculate $R_{0SP}$*. I am trying to use your equations
+from your 2020 Ecology Letters paper and your 2022 J. of Animal Ecology paper, like you have
+suggested.
+
+I just need you to look over the equation I've come up with, and see if that seems correct. I also
+included a brief review of the equations from each paper, just to make sure I'm understanding it
+correctly.
+
+## 2020: Environmental Pool, Multi-species, Muli-patch 
+
+$$
+R_{0SP} = \frac{1 + \dfrac{\phi_s}{b_{SP}}\sum_{j=1}^{numpatches}(c_{jp}-c_{pj} * \dfrac{A_j}{A_p}* \dfrac{\Pi_{sj}}{\Pi_{sp}} * \dfrac{N_{sj}}{N_{sp}})}{(1 - \Pi_{sp})(\sum_{i=1}^{numspp}(\dfrac{\lambda_{ip}}{\lambda_{sp}} * \dfrac{\Pi_{ip}}{\Pi_{sp}} * \cfrac{N_{ip}}{N_{sp}}))}
+$$
+
+Where $\phi_s$ = the dispersal rate of species S, $b_{SP}$ is the loss rate for infectious 
+individuals, $c_{jp}$ and $c_{pj}$ represent the connectivity of patches p and j, $A_j$ and $A_p$ are 
+the area of patches j and p, $N_{sj}$ and $N_{sp}$ are the total population of species s in patches j
+and p, and $\Pi_{sp}$ and $\Pi_{ip}$ are the prevalence of infection in species s and i in patch p.
+
+## 2022: Frequency dependent, multi-species, single patch
+
+$$
+R_{0S} = \frac{1}{(1-P_s)\dfrac{N_S}{N_T}\sum_{i=1}^{numspecies}(\dfrac{\beta_{si}}{\beta_{ss}}\dfrac{N_{i}}{N_{s}}\dfrac{P_{i}}{P_{s}}}
+$$
+
+Where $P_s$ is the prevalence of a disease within species s (similar to $\Pi$ from the 2020 paper), 
+$N_s$ is the population size of species s and $N_T$ is the total population of all species, and 
+$\beta_{si}$ is interspecies transmission coefficient.
+
+## My "new" model: Frequency dependent, multi species, multi-patch
+
+$$
+R_{0SP} = \frac{1+\dfrac{\phi}{b_{sp}}\sum_{j}^{patches}(c_{jp}-c_{pj}\dfrac{\Pi_{sj}}{\Pi_{sp}}\dfrac{N_{sj}}{N_{sp}})}{\dfrac{N_s}{N_T}(1-\Pi_{sp})(\sum_{i}^{species}(\dfrac{\beta_{si}}{\beta_{ss}}\dfrac{N_{ip}}{N_{sp}}\dfrac{\Pi_{ip}}{\Pi_{sp}})}
+$$
+
+All the parameter definitions are the same as above: $\phi$ is dispersal, b is loss, c is 
+connectivity, N is population size, $\Pi$ is prevalence, and $\beta$ is the transmission coefficient.
+
+All I really did was combine the concepts behind the two equations, at least how I understood them. I added the phrase $\dfrac{\phi}{b_{sp}}\sum_{j}^{patches}(c_{jp}-c_{pj}\dfrac{\Pi_{sj}}{\Pi_{sp}}\dfrac{N_{sj}}{N_{sp}})$ to account for connectivity and movement 
+between patches. Additionally,  By replacing the denominator of the 2020 equation with the denominator of the 2022 equation we switch from an environmental pool system to a frequency dependent system.
+
+That's what I have so far. I am currently trying to implement this in my simulation in R but running up against some errors. It's likely just an implementation problem, but I wanted to stop and check with you if my equation makes sense.

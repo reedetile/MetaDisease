@@ -438,9 +438,9 @@ for (t in 1:time) {
           #calculate R0 for each species at each patch
           b[p,i] <- v[i]*d[i] #gets loss rate
           Prev_prop <- ifelse(N[q,i] > 0 & N[p,i] > 0, 
-                              (I[q,i]/N[q,i])/ (I[p,i]/N[p,i]), 0)
+                              (I[q,i]/N[q,i])/(I[p,i]/N[p,i]), 0)
           r0_numerator <- ifelse(N[p,i] > 0,
-                                 1 + phi[i]/b[p,i]*sum(c[p,q]-c[q,p]*Prev_prop*(N[q,i]/N[p,i])),
+                                 1 + (phi[i]/b[p,i])*sum(c[p,q]-c[q,p]*Prev_prop*(N[q,i]/N[p,i])),
                                  0)
           r0_denominator <- ifelse(N[p,i] > 0 & sum(N[p,]) > 0 & N[p,j] > 0,
                                    (1 - (I[p,i]/N[p,i]))*

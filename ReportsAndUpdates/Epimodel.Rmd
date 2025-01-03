@@ -1,0 +1,132 @@
+---
+title: "Epimodel"
+author: "Reed Scott"
+date: "2024-11-25"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(vegan)
+source('Occu_abun_practice.R')
+```
+
+# Introduction
+
+I am assuming that you have already read the document on simulating abundance of species in a metacommunity. As
+a reminder, our goal is to understand whether or not landscape level R~0~ is impacted by $\beta$ diversity. We
+have simulated a dataset with abundances for each species. Now we need to see how the abundance of each species
+and the connectivty of patches interact to impact prevalence of the disease.
+
+# Initializing
+
+The first step is to determine initial conditions. We need to determine the amount of susceptible individuals 
+and infected individuals at the start of this simulation. For now, I have assumed that the most abundant 
+species (spp1) is the most susceptible (highest probability of getting disease) while the least abundant spp 
+(spp6) is the most resistant. Because this uses an SIS model, the number of infectious individuals I can be 
+determined by the total population - S. Total population is also just S+I. Finally we have to determine a
+starting disease level. In this case, we are using the amphibian chytrid fungus as an example, so I have
+chose what I *think* is a reasonable starting number of 1000 zoospores.
+
+```{r, initial conditions}
+S <- ceiling(meta_comm1[,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #starting value of susceptibles
+I <- meta_comm1[,1:6] - S #starting value of infecteds
+N <- S+I
+Z <- 1000 #starting amount of zoospores
+```
+
+# Species characteristics
+
+Ater choosing the initial values, we must assign species specific traits to determine how their abundance will impact disease risk. These include a birth rate (b), death rate (d), tranmission coefficient(beta), recovery rate (v), dispersal rate (phi), and BD load / shedding rate (lambda). These are shown in the table below.
+
+```{r species characteristics, echo = FALSE}
+Species <- c("Spp1","Spp2","Spp3","Spp4","spp5","spp6")
+b <- c(0.6,0.5,0.4,0.3,0.2,0.1) #host birth rate
+d <- c(0.06,0.05,0.04,0.03,0.02,0.01) #host death rate
+beta <- c(0.00013,0.00012,0.00011,0.00010,0.00009,0.00008) #transmission per species
+v <- c(0.4,0.5,0.6,0.7,0.8,0.9) #recovery rate
+phi <- c(0.09,0.08,0.07,0.06,0.05,0.04) #dispersal rate
+lambda <- c(3.0,2.5,2.0,1.5,1.0,0.5) #log(bd) load. losely based off figure 2 from wilber 2020 
+species_chara <- data.frame(Species = Species,
+                            birth = b, 
+                            death = d, 
+                            trans = beta, 
+                            recovery = v, 
+                            dispersal = phi, 
+                            shedding = lambda)
+species_chara
+```
+
+*Note: right now, these characteristics are relatively arbitrary. I came up with values that I think would be*
+*in the range of plausible values. However, these are essentially made up. A key next step is to find more*
+*realistics values. This may include asking Mark what values they observed in their study.*
+
+Lastly, we must set some more characteristics about the meta-community within which we are operating.
+We must establish gamma, or the decay rate of zoospores of Bd. We have to establish a matrix, c, of the 
+connectivty values between patches. And we must establish the area of each patch. We also have to establish
+the length of time over which this will occur. In this case, I have set time = 90, to represent a potential
+90 day field season.
+
+```{r, meta-comm chara}
+# meta-community characteristics
+gamma <- 0.001 #zoospore decay rate
+c <- matrix(data = rnorm(n = num_patches^2, mean = 0.5, sd = 0.1),
+            nrow = num_patches, 
+            ncol = num_patches)
+#Connectivity of patches
+A <- rnorm(n = num_patches, mean = 0.5, sd = 0.1) #area ratios
+time <- 90 #how many "days" do I want in the season
+```
+
+*Note: right now, c is a matrix of random values with mean 0.5 and sd = 0.1. This will likely need to be*
+*adjusted considerably in my opinion. We may need to set distance values between each pair of patches, and*
+*then consider how distance affects connectivty. Additionally, we have to consider that within this matrix,*
+*along the diagonal is the probability that an individual stays in the same patch. There will likely be a*
+*different formulation for this probability.*
+
+# Running the simulation over time
+
+Alright, we're finally at the main event! This is a relatively short bit of code, but it does a lot.
+
+First, we'll want to establish an empty list, of length time. We will use this list to record the number
+susceptible individuals of each species, infectious individuals of each species, total number of individuals
+of each species, and the time (i.e. "day"). 
+
+With that set we can start the for loop. The for loop runs for time t. There are 3 key steps to this loop.
+
+1. Calculate delta_s, delta_I, and delta_Z. This is the number of new susceptible and ifnectious individuals
+   for each species, as well as the number of zoospores being added to the pool.
+2. Calculate the new S, I, Z, and N values. This just simply adds the delta values to their respective
+   initial values to calculate the "new" values for S,I,Z, and N.
+3. Package it all in a list. We will do this so that we get a nice output we can later use for analysis.
+
+```{r simulation}
+pop_list <- vector("list", length = time)
+for (t in 1:time) {
+  delta_s <- b*N - d*S - beta*S*Z + v*I + phi*sum(-c*S + c*S) #for now have excluded area of patches
+  #may want to add that back in though
+  delta_I <- beta*S*Z-(v+d)*I+phi*sum(-c*I + c*I)#for now have excluded area of patches
+  #may want to add that back in though
+  delta_Z <- sum(lambda*I - gamma*Z)
+  S <- S+delta_s
+  I <- I+delta_I
+  z <- Z+delta_Z
+  N <- S + I
+  t = t
+  pop <- list(Susceptible = S, Infectious = I, Zoospores = Z, Total = N, Time = t)
+  pop_list[[t]] <- pop
+}
+```
+
+I am not going to display pop_list because it's huge: it's 90 lists, each of which contain 5 dataframes. 
+Additionally, right now the output is unrealistic. However, I think that as we fine tune the parameters,
+we will find this to be a good functional model.
+
+# Conclusion
+
+I believe what I have now is solid progress and a really good start to the simulation! However, I have no
+delusions. There is still a lot of work to be done one this. Most important, I believe, is that I need to
+tune the parameters to be more biologicall relevant / realistic. I also still need to consider how I will
+be analyzing the output of this SIS model. Additionally, the goal is to simulate multiple different
+metacommunities and compare landscape R~0~ values, which I have not yet done. So, yes, there is still a lot
+of work to do. I am nonetheless excited at the progress I've made.

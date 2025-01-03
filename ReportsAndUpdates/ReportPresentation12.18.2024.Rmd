@@ -1,0 +1,366 @@
+---
+title: "MetaDisease Project Update"
+author: "Reed Scott"
+institute: "University of Vermont"
+date: "2016/12/12 (updated: `r Sys.Date()`)"
+output:
+  xaringan::moon_reader:
+    css: [default]
+    nature:
+      higlightLines: true
+---
+
+# Introduction
+For the past couple of weeks I have been working on the metadisease project (Now Ch. 2 of my dissertation)
+Here, I would like to report on the work I've gotten done, as well as what potential next steps I'd like to take.
+
+I will report on the following:
+1. Some important background decisions
+2. The necessary parameters for this model and their assigned values
+3. The frequency dependent epidiomological model I have constructed
+---
+
+# Background
+* Originally, we had envisioned this project as using a few fake species as caricatures of an ecological system.
+* However, I have found it difficult to ground myself and think through this model while using fake species.
+* For that reason, I have decided to instead use a real world system as a case study for this project.
+* I have chosen to use the same system that Mark used in his 2020 Ecology Letters paper, which is similar to that
+used by Johnson et al (2013). However, we use BD as our disease system instead of trematodes.
+---
+
+# The focal question
+
+## How does beta-diversity of a metacommunity relate to disease risk (measured as landscape $R_0$)
+---
+
+# The Study System
+* We will be using an SIS disease model for this project.
+* We have to include all of the assumption of a dilution effect. These include
+  1. Hosts differ in "quality"
+  2. Higher quality hosts tend to occur in species poor communities
+  3. Lower quality hosts tend to occur in more diverse communities
+  4. Lower quality hosts regulate the abundance of high quality hosts, or reduce encounter rates between high quality
+     hosts and pathogens.
+* We make some additional assumptions
+  1. Inherent in this is the idea communities are nested within one another
+  2. The most abundant and ubiquitous species should be the best reservoir
+---
+
+# The study system (continued)
+* We will use the same study system as Wilber et al (2020), which is also similar to that used by johnson et al (2013).
+* This study system includes 6 focal species those are: 
+  1. P. regilla
+  2. A. boreas
+  3. L. catesbeianus
+  4. L. draytonii
+  5. T. torosa
+  6. T. granulosa
+* Disease = BD
+---
+
+# The models
+* For this simulation, we need to determine rate change equations for the number of Suscpetible individuals (S) and the
+  number of infectious individuals (I)
+* I have come up with the following equations based on Wilber et. al (2020) and Wilber et. al (2022)
+--
+
+$$\frac{\Delta S_{i,p}}{\Delta t} = b_i * N_{p,i} - d_i * S_{i,p} - \beta_{i,j} * S_{p,i} * \frac{I_{p,j}}{N_{p,j}} + \phi_i * \sum_{i = 1}^{n}{-c_{q,p}*S_{p,i} + c_{q,p}*S_{q,i}} * \frac{A_p}{A_q}$$
+
+$$\frac{\Delta I_{i,p}}{\Delta t} = \beta_{i,j} * S_{p,i} * \frac{I_{p,j}}{N_{p,j}} - (v_i*d_i)*I_{p,i} + \phi_i * \sum_{i = 1}^{n}{-c_{q,p}*I_{p,i} + c_{q,p}*I_{q,i} * \frac{A_P}{A_q}}$$
+
+--
+Where
+* $b_i * N_{p,i}$ represents the number of susceptible individuals being born and $d_i * S_{i,p}$ is the number of
+  susceptible individuals dying
+  + $b_i$ is the birth rate
+  + $d_i$ is the death rate
+
+--
+* $\beta_{i,j} * S_{p,i} * \frac{I_{p,j}}{N_{p,j}}$ is the force of infection in a frequency dependent system
+  + $\beta_{i,j}$ is the transmission coefficient between susceptible individuals of species i and infectious individuals
+    of species j.
+---
+
+# The models (continued)
+* For this simulation, we need to determine rate change equations for the number of Suscpetible individuals (S) and the
+  number of infectious individuals (I)
+* I have come up with the following equations based on Wilber et. al (2020) and Wilber et. al (2022)
+
+$$\frac{\Delta S_{i,p}}{\Delta t} = b_i * N_{p,i} - d_i * S_{i,p} - \beta_{i,j} * S_{p,i} * \frac{I_{p,j}}{N_{p,j}} + \phi_i * \sum_{i = 1}^{n}{-c_{q,p}*S_{p,i} + c_{q,p}*S_{q,i}} * \frac{A_p}{A_q}$$
+
+$$\frac{\Delta I_{i,p}}{\Delta t} = \beta_{i,j} * S_{p,i} * \frac{I_{p,j}}{N_{p,j}} - (v_i*d_i)*I_{p,i} + \phi_i * \sum_{i = 1}^{n}{-c_{q,p}*I_{p,i} + c_{q,p}*I_{q,i} * \frac{A_P}{A_q}}$$
+
+* $\phi_i * \sum_{i = 1}^{n}{-c_{q,p}*S_{p,i} + c_{q,p}*S_{q,i}} * \frac{A_p}{A_q}$ **and** $\phi_i * \sum_{i = 1}^{n}{-c_{q,p}*I_{p,i} + c_{q,p}*I_{q,i} * \frac{A_P}{A_q}}$ determine the movement of susceptible and infectious
+  individuals between patches
+  + $\phi_i$ is a dispersal parameter for species i.
+  + $c_{q,p}$ and $c_{p,q}$ represent the connectivity between patch p and patch q.
+  + $\frac{A_p}{A_q}$ is the area relationship between patches p and q.
+---
+
+# Parameters for the model
+* With these equations in mind we can identify a few key parameters we will need to provide values for.
+* Those are
+  + $b_i$ birth rate for each species
+  + $d_i$ death rate for each species
+  + $v_i$ recovery rate for each species
+  + $beta_{i,j}$ transmision coefficients *between each species*
+  + $\phi_i$ dispersal rates for each species
+  + $c_{q,p}$ connectivity between each pair of patches
+  + $A$ the area of each patch
+---
+
+# Reduce parameters
+* The first step is to make my life easier by reducing the number of parameters
+* For right now, we are examining a single season model, so it makes sense that $b_i$ can be reduced the 0 for each species
+* Additionally, we are uninterested in the affect of size for the time being, so if we assume all patches are of equal
+  size, we can set $\frac{A_p}{A_q} = 1$
+---
+
+# Lit review and filling in the blanks
+* To provide values for each parameter, I conducted a literature review to find at least approximate values for each 
+  species
+* However, these are quite a few parameters, and there may be differences in how studies measured them, if any such 
+  studies exist.
+* That is to say the following:
+  + Where parameter estimates could be found, they are converted to a per day rate so that they could be applied to a 
+    90 day amphibian breeding season
+  + Where parameter estimates for a given species could not be found, I have pseudo-randomly assigned parameter values, 
+    but these assignments are based on ecologically relevant information.
+---
+
+# A quick note on rank abundance
+
+* I won't discuss it much here, but it's worth noting that I have begun simulating rank abundance of each of these
+  species within a community. To do this, I largely referenced Johnson et al (2013)
+* Where certain parameters have not been estimated in available literature, I largely used rank abundance of each species
+  to determine where the parameters likely lie.
+```{r johnson pic, echo=FALSE}
+knitr::include_graphics("johnson_2013.png")
+```  
+  
+---
+
+# Death rate
+Species        | recovery rate (b)
+---------------|---------------------------------------------------
+P. regilla     | 0.006
+A. boreas      | 0.0007
+L. catesbeianus| 0.0036
+L. draytonii   | 0.0099
+T. granulosa   | Between P. regilla and A. boreas
+T. torosa      | Between P. regilla and A. boreas
+---
+
+# Recovery rate
+Species        | recovery rate (b)
+---------------|---------------------------------------------------
+P. regilla     | Should be lowest
+A. boreas      | Should be lower than L. catesbeianus
+L. catesbeianus| 0.034 ind/day
+L. draytonii   | Should be highest
+T. granulosa   | Becuase it is a newt, should be relatively high
+T. torosa      | Becuase it is a newt, should be relatively high
+---
+
+# Transmission coefficient
+```{r initial params, echo= FALSE, results='hide', message=FALSE}
+source('Occu_abun_practice.R')
+
+# Parameters-------------------------------------
+#starting values
+S <- ceiling(meta_comm1[,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #starting value of susceptibles
+I <- meta_comm1[,1:6] - S #starting value of infecteds
+N <- S+I
+time <- 90 #how many "days" do I want in the season
+
+#species characteristics
+Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
+# PREG = Pseudacris Regilla (Pacific tree frog)
+# ABOR = Anaxyrus boreas (western toad)
+# RCAT = Rana catesbeiana (American bullfrog)
+# RDRAY = Rana draytonii (Califronia red legged frog)
+# TTOR = Taricha torosa (California newt)
+# TGRAN = Taricha granulosa (rough-skinned newt)
+
+b <- rep(0, times = 6) #currently have birth rate set to 0 b/c this is a within season model
+# if we change to a multi-season model, will need to add in some birth rate
+# b <- c(0.6,0.5,0.4,0.3,0.2,0.1)/time #host birth rate
+d <- c(0.006,
+       NA,
+       NA,
+       0.0007,
+       0.004,
+       0.0099)
+d[2] <- runif(n = 1, min = d[[4]], max = d[[1]])       
+d[3] <- runif(n = 1, min = d[[4]], max = d[[2]])       
+# Citations for death rate
+# PREG = Jameson 1956
+# ABOR = Pilliod 2010
+# RCAT = Howell 2020
+# RDRAY = Feller 2017
+# TTOR = johnson 2013 + assumptions of dilution effects
+# TGRAN =  johnson 2013 + assumptions of dilution effects
+v <- c(NA,
+       NA,
+       NA,
+       NA,
+       0.03,
+       NA)
+# Citation for RCAT recovery = Daszak 2004
+low_recovery <- runif(n = 4, min = 0, max = v[5])
+v[1] <- min(low_recovery)
+v[4] <- max(low_recovery)
+mid_low_recovery <- low_recovery[low_recovery != v[1] & low_recovery != v[4]]
+v[2] <- min(mid_low_recovery)
+v[3] <- max(mid_low_recovery)
+v[6] <- runif(n = 1, min = v[5], max = 0.1) #should find citation for max recovery rate
+v
+#Determining dispersal rate
+psi <- c(0.83, 0.62, 0.14,NA, 0.12,0.64)
+psi[4] <- runif(n = 1, min = psi[5], max = psi[3])
+N_meta <- colSums(N)
+phi <- ifelse(N_meta > 0, psi/N_meta, 0)
+phi
+# alpha <- #disease specific mortality
+species_chara <- data.frame(Species = Species,
+                            birth = b, 
+                            death = d, 
+                            recovery = v, 
+                            dispersal = phi)
+
+```
+```{r transmission coefficient}
+beta <- matrix(data = NA, nrow = num_spp, ncol = num_spp)
+for (i in 1:nrow(beta)) {
+  for (j in 1:ncol(beta)) {
+    beta[i,j] <- ifelse(i == j, 
+                        rbeta(n = 1, shape1 = 2, shape2 = 10),
+                        rbeta(n = 1, shape1 = 1, shape2 = 1)) 
+    #need to make this more realistic
+  }
+}
+beta
+```
+---
+
+# Connectivity
+```{r connect param}
+c <- matrix(data = rnorm(n = num_patches^2, mean = 0.5, sd = 0.1),
+            nrow = num_patches, 
+            ncol = num_patches)
+c
+```
+---
+
+# Dispersal
+* Dispersal is probably the hardest thing to measure
+* Everything is in meters, kilometers... but we need to think in probability of moving from one patch to another
+* I have a *potential* solution. (**potential** so please let me know your thoughts)
+  + What if we used *colonization* to approximate dispersal?
+  + My thought: the probability of colonization could be thought of as the product of a dispersal rate and the population
+    size
+  + The higher the population or the higher the dispersal rate, the higher $\gamma$ is/ So we could think the following
+  
+  $$\gamma = N * \phi$$
+  $$\frac{\gamma}{N} = \phi$$
+  
+  + where N = population size.
+  + Additionally, in cases where we can't find a colonization rate, we *could* assume that $\gamma$ is proportional
+    to $\Psi$ and use a similar equation.
+   
+---
+
+# Running the model
+
+```
+for (t in 1:time) {
+  delta_s_matrix <- matrix(nrow = num_patches, ncol = num_spp)
+  delta_I_matrix <- matrix(nrow = num_patches, ncol = num_spp)
+  r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp)
+  B <- matrix(nrow = num_patches, ncol = num_patches)
+```
+--
+```
+  for (p in 1:num_patches) {
+    for(q in 1:num_patches){
+      for (i in 1:num_spp) {
+        for (j in 1:num_spp) {
+```
+--
+
+```
+          #establish parameters for time t of species s
+          connectivity_s <- phi[i]*sum(-c[p,q]*S[p,i] + c[q,p]*S[q,i]*(A[p]/A[q]))
+          connectivity_I <- phi[i]*sum(-c[p,q]*I[p,i] + c[q,p]*I[q,i]*(A[p]/A[q]))
+          birth <- b[i]*N[p,i]
+          death_s <- d[i]*S[p,i]
+          loss_I <- (v[i]*d[i])*I[p,i]
+          FI <- ifelse(N[p,j] > 0, beta[i,j]*S[p,i]*(I[p,j]/N[p,j]), 0)
+          
+          #change in rate of susceptible + infectious individuals
+          delta_s <- birth - death_s - FI + connectivity_s
+          delta_s_matrix[p,i] <- delta_s
+          
+          delta_I <- FI - loss_I + connectivity_I
+          delta_I_matrix[p,i] <- delta_I
+```
+---
+# Running the model
+```
+         #Doesn't currently work
+         #parameters to calc R0
+          r0_species_patch[p,j] <-  ifelse(N[p,j] > 0, FI/loss_I, 0) #<<
+          DP <- matrix(data = ifelse(i == j, -(v[i]*d[i]) - phi[i], 0),
+                       nrow = num_spp, ncol = num_spp)
+          EIP <- matrix(data = ifelse(i == j,(A[p]/A[q])*c[p,q]*psi[i],0),
+                        nrow = num_spp, ncol = num_spp)
+          B[p,q] <- ifelse(p == q, DP, EIP)
+        }
+      }
+    }
+  }
+```
+--
+```
+   # New population dynamics
+  S <- S + delta_s_matrix
+  I <- I + delta_I_matrix
+  N <- S + I
+  # t = t
+  pop <- list(Susceptible = S, Infectious = I, Total = N, Time = t)
+  pop_list_Freq[[t]] <- pop
+  beta <- betadiver(N, method = 'w')
+  * r0_landscape <- eigen(r0_species_patch *(-B^-1))[1] #doesn't currently work
+  dilute_effect[i,1] <- beta
+  * dilute_effect[i,2] <- r0_landscape
+}
+```
+
+---
+
+# Next Steps
+
+* So this is where I'm currently at.
+* I have a couple important next goals
+  1. I want to calculate landscape $R_0$ for the metacommunity at each time step. Then, at each time step I can compare
+     $\beta$ diversity and $R_0$ to determine any effects
+  2. Although I haven't talked much about the creation of the metacommunity model, I would to start working off of more
+     than 1 example metacommunity. What do I mean? I mean having a list of multiple (100s, 1000s?) simulated         
+     metacommunities and the running this time simulation.
+     
+* Example
+
+Metacommunity | $\beta$ | $R_0$
+--------------|---------|------
+1             |0.75     | 0.9
+2             |0.5      | 1.0
+...           |         |
+100           |0.25     | 1.1 
+---
+
+# Conclusion
+
+* I have a working frequency dependent model
+* I have values for each parameter that are based on real world values
+* I need to figure out how to calculate $R_0$ at each time step
+* I want to run this simulation over multiple metacommunities
