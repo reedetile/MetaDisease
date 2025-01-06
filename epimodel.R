@@ -660,9 +660,9 @@ for(i in 1:ncol(c)){
 }
 
 # Simulation over metacommunities
-result2 <- data.frame(matrix(data = NA, nrow = length(meta_comm_list), ncol = 9))
+result2 <- data.frame(matrix(data = NA, nrow = length(meta_comm_list), ncol = 11))
 colnames(result2) <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY",
-                       "BetaDiversity","LandscapeR0", "MetaCommID")
+                       "BetaDiversity","TotalAbundance","Beta_relative","LandscapeR0", "MetaCommID")
 for (a in 1:length(meta_comm_list)) {
   S <- ceiling(meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #value of susceptibles
   I <- meta_comm_list[[a]][,1:6] - S #value of infecteds
@@ -724,8 +724,11 @@ for (a in 1:length(meta_comm_list)) {
     result2[a,i] <- sum(N[,i])
   }
   result2[a,7] <- mean(beta_diversity, na.rm =T)
-  result2[a,8] <- eigen(r0_landscape[[1]])$values[1]
-  result2[a,9] <- a
+  
+  result2[a,8] <- sum(N)
+  result2[a,9] <- result2[a,7]/result2[a,8]
+  result2[a,10] <- eigen(r0_landscape[[1]])$values[1]
+  result2[a,11] <- a
 }
 
 meta_comm_plot <- ggplot(data = result2, aes(x = BetaDiversity, y = LandscapeR0))+
@@ -734,6 +737,18 @@ meta_comm_plot <- ggplot(data = result2, aes(x = BetaDiversity, y = LandscapeR0)
 meta_comm_plot
 
 
-species_plot <- ggplot(data = result2, aes(y = LandscapeR0))+
-  geom_point(aes(x = PREG), colour = "red")+
-  geom_point(aes(x = TGRAN), colour = "red")+
+species_plot <- ggplot(data = result2, aes(y = LandscapeR0)) +
+  geom_point(aes(x = PREG), colour = "red") +
+  geom_point(aes(x = TGRAN), colour = "blue")
+species_plot  
+
+abun_R0_plot <- ggplot(data = result2, aes(x = TotalAbundance, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth()
+abun_R0_plot
+
+beta_relative_plot <- ggplot(data = result2, aes(x = Beta_relative, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth()
+
+beta_relative_plot
