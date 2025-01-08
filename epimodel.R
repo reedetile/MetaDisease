@@ -7,6 +7,8 @@
 library(vegan)
 library(tidyverse)
 library(ggplot2)
+library(RColorBrewer)
+library(patchwork)
 source('Occu_abun_practice.R')
 set.seed(1234)
 
@@ -660,9 +662,11 @@ for(i in 1:ncol(c)){
 }
 
 # Simulation over metacommunities
-result2 <- data.frame(matrix(data = NA, nrow = length(meta_comm_list), ncol = 11))
-colnames(result2) <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY",
-                       "BetaDiversity","TotalAbundance","Beta_relative","LandscapeR0", "MetaCommID")
+result2 <- data.frame(matrix(data = NA, nrow = length(meta_comm_list), ncol = 18))
+colnames(result2) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY",
+                       "PREG_rel","TGRAN_rel","TTOR_rel","ABOR_rel","RCAT_rel","RDRAY_rel",
+                       "BetaDiversity","Gamma_diversity",
+                       "Beta_relative","LandscapeR0", "MetaCommID")
 for (a in 1:length(meta_comm_list)) {
   S <- ceiling(meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #value of susceptibles
   I <- meta_comm_list[[a]][,1:6] - S #value of infecteds
@@ -712,7 +716,7 @@ for (a in 1:length(meta_comm_list)) {
     }
   }
   # Calculate landscape R0 and betadiversity
-  beta_diversity <- betadiver(N, method = 'w')
+  
   r0_landscape <- landscape_R0(R0_spps = r0_species_patch,
                                Cmat = c,
                                b = b,
@@ -720,35 +724,174 @@ for (a in 1:length(meta_comm_list)) {
                                phi = phi,
                                S = num_spp,
                                P = num_patches)
-  for (i in 1:num_spp) {
-    result2[a,i] <- sum(N[,i])
+  result2[a,1] <- sum(N) #total abundance
+  #abdunance of each species
+  for (i in 2:(1+num_spp)) {
+    result2[a,i] <- sum(N[,i-1])
+    result2[a,(i+num_spp)] <- result2[a,i]/result2[a,1]
   }
-  result2[a,7] <- mean(beta_diversity, na.rm =T)
   
-  result2[a,8] <- sum(N)
-  result2[a,9] <- result2[a,7]/result2[a,8]
-  result2[a,10] <- eigen(r0_landscape[[1]])$values[1]
-  result2[a,11] <- a
+  #add beta diversity
+  beta_diversity <- betadiver(N, method = 'w')
+  result2[a,14] <- mean(beta_diversity, na.rm =T) #beta diversity
+  result2[a,15] <- sum(ifelse(result2[a,1:6] > 0, 1,0)) #gamma diversity
+  
+  result2[a,16] <- result2[a,7]/result2[a,8] #beta diversity / total abundance
+
+    #calculate landscape R0
+  r0_landscape <- landscape_R0(R0_spps = r0_species_patch,
+                               Cmat = c,
+                               b = b,
+                               beta = beta,
+                               phi = phi,
+                               S = num_spp,
+                               P = num_patches)
+  
+  result2[a,17] <- eigen(r0_landscape[[1]])$values[1] #landscape R0
+  result2[a,18] <- a #metacommunity ID
 }
 
-meta_comm_plot <- ggplot(data = result2, aes(x = BetaDiversity, y = LandscapeR0))+
+beta_plot <- ggplot(data = result2, aes(x = BetaDiversity, y = LandscapeR0))+
   geom_point()+
-  geom_smooth()
-meta_comm_plot
-
-
-species_plot <- ggplot(data = result2, aes(y = LandscapeR0)) +
-  geom_point(aes(x = PREG), colour = "red") +
-  geom_point(aes(x = TGRAN), colour = "blue")
-species_plot  
+  geom_smooth(method = 'lm')+
+  theme_classic()+
+  labs(title = 'Effect of Beta diversity on Landscape R0')
+beta_plot
 
 abun_R0_plot <- ggplot(data = result2, aes(x = TotalAbundance, y = LandscapeR0))+
   geom_point()+
-  geom_smooth()
+  geom_smooth(method = 'lm')+
+  theme_classic()+
+  labs(title = 'Effect of Abundance on Landscape R0')
 abun_R0_plot
 
 beta_relative_plot <- ggplot(data = result2, aes(x = Beta_relative, y = LandscapeR0))+
   geom_point()+
-  geom_smooth()
-
+  geom_smooth(method = 'lm')+
+  theme_classic()+
+  labs(title = 'Effect of beta diversity on Landscape R0, corrected for abundnace')
 beta_relative_plot
+
+gamma_plot <- ggplot(data = result2, aes(x = Gamma_diversity, y = LandscapeR0))+
+  geom_point(position = position_jitter(h=0.15,w=0.15))+
+  geom_smooth(method = 'lm')+
+  theme_classic()+
+  labs(title = 'Effect of Gamma diversity on Landscape R0')
+gamma_plot
+
+meta_comm_effects <- (beta_plot + abun_R0_plot)/(beta_relative_plot + gamma_plot)
+meta_comm_effects
+
+#Species plots
+#total abundance
+Total_abund <- result2 %>% select(c(PREG:RDRAY, LandscapeR0))
+Total_abund_longer <- pivot_longer(Total_abund, !LandscapeR0, names_to = "Species", values_to = "Abund")
+Total_abund_plot <- ggplot(data = Total_abund_longer, mapping = aes(x = Abund, y = LandscapeR0, colour = Species))+
+  geom_point()+
+  geom_smooth(method = 'lm')
+Total_abund_plot #all species
+
+#let's do plots by species
+#PREG
+Total_PREG <- Total_abund_longer %>% filter(Species == 'PREG')
+PREG_Total_plot <- ggplot(Total_PREG, mapping = aes(x = Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "PREG")
+
+#ABOR
+Total_ABOR <- Total_abund_longer %>% filter(Species == 'ABOR')
+ABOR_Total_plot <- ggplot(Total_ABOR, mapping = aes(x = Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "ABOR")
+
+#RCAT
+Total_RCAT <- Total_abund_longer %>% filter(Species == 'RCAT')
+RCAT_Total_plot <- ggplot(Total_RCAT, mapping = aes(x = Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "RCAT")
+
+#RDRAY
+Total_RDRAY <- Total_abund_longer %>% filter(Species == 'RDRAY')
+RDRAY_Total_plot <- ggplot(Total_RDRAY, mapping = aes(x = Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "RDRAY")
+
+#TGRAN
+Total_TGRAN <- Total_abund_longer %>% filter(Species == 'TGRAN')
+TGRAN_Total_plot <- ggplot(Total_TGRAN, mapping = aes(x = Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "TGRAN")
+
+#TTOR
+Total_TTOR <- Total_abund_longer %>% filter(Species == 'TTOR')
+TTOR_Total_plot <- ggplot(Total_TTOR, mapping = aes(x = Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "TTOR")
+
+Species_total_plots <- (ABOR_Total_plot + PREG_Total_plot + RCAT_Total_plot) / 
+  (RDRAY_Total_plot + TGRAN_Total_plot + TTOR_Total_plot)
+Species_total_plots
+
+
+
+#relative abundance
+Rel_abund <- result2 %>% select(c(PREG_rel:RDRAY_rel, LandscapeR0))
+Rel_abund_longer <- pivot_longer(Rel_abund, !LandscapeR0, names_to = "Species", values_to = "Rel_Abund")
+Rel_abund_plot <- ggplot(data = Rel_abund_longer, mapping = aes(x = Rel_Abund, y = LandscapeR0, colour = Species))+
+  geom_point()+
+  geom_smooth(method = 'lm')
+Rel_abund_plot
+
+#let's do plots by species
+#PREG
+Rel_PREG <- Rel_abund_longer %>% filter(Species == 'PREG_rel')
+PREG_Rel_plot <- ggplot(Rel_PREG, mapping = aes(x = Rel_Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "PREG")
+
+#ABOR
+Rel_ABOR <- Rel_abund_longer %>% filter(Species == 'ABOR_rel')
+ABOR_Rel_plot <- ggplot(Rel_ABOR, mapping = aes(x = Rel_Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "ABOR")
+
+#RCAT
+Rel_RCAT <- Rel_abund_longer %>% filter(Species == 'RCAT_rel')
+RCAT_Rel_plot <- ggplot(Rel_RCAT, mapping = aes(x = Rel_Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "RCAT")
+
+#RDRAY
+Rel_RDRAY <- Rel_abund_longer %>% filter(Species == 'RDRAY_rel')
+RDRAY_Rel_plot <- ggplot(Rel_RDRAY, mapping = aes(x = Rel_Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "RDRAY")
+
+#TGRAN
+Rel_TGRAN <- Rel_abund_longer %>% filter(Species == 'TGRAN_rel')
+TGRAN_Rel_plot <- ggplot(Rel_TGRAN, mapping = aes(x = Rel_Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "TGRAN")
+
+#TTOR
+Rel_TTOR <- Rel_abund_longer %>% filter(Species == 'TTOR_rel')
+TTOR_Rel_plot <- ggplot(Rel_TTOR, mapping = aes(x = Rel_Abund, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  labs(title = "TTOR")
+
+Species_Rel_plots <- (ABOR_Rel_plot + PREG_Rel_plot + RCAT_Rel_plot) / 
+  (RDRAY_Rel_plot + TGRAN_Rel_plot + TTOR_Rel_plot)
+Species_Rel_plots
+
