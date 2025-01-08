@@ -167,18 +167,13 @@ pre code {
 /*-- TABLES --*/
 .remark-slide table {
   margin: auto;
-  border-top:          1px solid #768692;
-  border-bottom:       1px solid #768692;
+  border-top:          1px solid #000000;
+  border-bottom:       1px solid #000000;
 }
 
 /*-- Table header --*/
 .remark-slide table thead th {
-  border-bottom:       1px solid #768692;
-}
-
-/*-- Table rows (even) --*/
-.remark-slide thead, .remark-slide tfoot, .remark-slide tr:nth-child(even) {
-  background:          #E8EDEE;
+  border-bottom:       1px solid #000000;
 }
 
 /*-- BLOCK QUOTE --*/

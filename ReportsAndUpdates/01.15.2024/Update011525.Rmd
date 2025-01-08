@@ -14,6 +14,11 @@ output:
 knitr::opts_knit$set(root.dir = "D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024")
 setwd("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024")
 library(vegan)
+library(tidyverse)
+library(ggplot2)
+library(RColorBrewer)
+library(patchwork)
+set.seed(1234)
 ```
 
 # Goals for today?
@@ -148,3 +153,258 @@ class: center, middle
 
 # And voila! Just like that we have 100 simulated meta-communities.
 # Now, let's get in to the epidiomoligcal modeling!
+
+---
+
+# The epi. model
+## The necessary functions
+
+* This are taken from the .py code provided by Mark. I just translated it to R.
+* There are 3 key functions
+1 "build_R_with_data" builds the necessary R matrix
+--
+
+```{r build_R_with_data}
+build_R_with_data <- function(R0s,b,beta,S,P) {
+  fullR <- matrix(data = 0, nrow = P*S, ncol = P*S)
+  for (p in 1:P) {
+    tR0 <- R0s[p,]
+    Rmat <- matrix(data = rep(unlist(tR0),S), nrow = S, ncol = S)
+    tb <- b[p,]
+    bmat <- matrix(data = rep(unlist(tb),S), nrow = S, ncol = S)
+    # I have removed the following code (in .py) but should ask mark if I need to add something for
+    # Force of infection
+    # tλ = λs[:, p]
+    # λmat = np.repeat(tλ, S).reshape(S, S).T
+    # λ_ratios = λmat / λmat.T    
+    Rmat <- Rmat * bmat
+    Rmat[is.nan(Rmat)] = 0
+    Rmat[is.infinite(Rmat)] = 0
+    Rmat <- as.matrix(Rmat)
+    start <- ifelse(p == 1, p,(S*p)-(S-1))
+    stop <- start + S - 1
+    fullR[start:stop, start:stop] <- Rmat
+  }
+  
+  return(fullR)
+}
+```
+
+---
+# The epi. model
+## The necessary functions
+
+* This are taken from the .py code provided by Mark. I just translated it to R.
+* There are 3 key functions
+2 "build_B_with_data" builds the necessary B matrix
+
+```{r build_B_with_data}
+build_B_with_data <- function(Cmat, phi, b, S, P) {
+  Cmat_axis <- colSums(Cmat)
+  diag_list <- vector("list",P^2)
+  diag_list_names <- array(dim = c(sqrt(length(diag_list)), sqrt(length(diag_list))))
+  for (p in 1:P) { #loop over columns
+    for (j in 1:P) { #loop over rows
+      diag_list_names[j,p] <- paste(p,j,sep="_")
+    }
+  }
+  diag_list_names <- as.vector(diag_list_names)
+  names(diag_list) <- diag_list_names
+  for (p in 1:P) { #loop over columns
+    for (j in 1:P) { #loop over rows
+      tZ <- matrix(0,nrow = S, ncol = S)
+      new_diag <- array(dim = S)
+      new_diag <- if(p == j){
+        (-1)*b[p,] - phi*Cmat_axis[p]
+        } else{
+          phi*Cmat[j,p]
+          }
+      diag(tZ) <- new_diag
+      x <- paste(p,j,sep="_")
+      diag_list[[x]] <- tZ 
+    }
+  }
+  diag_matrix <- matrix(diag_list, nrow = P, ncol = P)
+  tB <- list()
+  for (j in 1:P) {
+    tB[[j]] <- matrix(data = unlist(diag_matrix[j,]), nrow = S*P, ncol = S, byrow = T) #looks like this worked!
+  }
+  
+  B <- do.call(cbind, tB[1:P]) #need to determine if this is what B should look like
+  return(B) 
+}
+```
+
+---
+
+# The epi. model
+## The necessary functions
+
+* This are taken from the .py code provided by Mark. I just translated it to R.
+* There are 3 key functions
+3 "landscape_R0" The max eigen value of K is landscape $R_0$
+
+```{r landscape_R0}
+landscape_R0 <- function(R0_spps,Cmat,b, beta, phi,S,P){
+  R <- build_R_with_data(R0s = R0_spps,
+                         b = b,
+                         beta = beta,
+                         S = S,
+                         P = P)
+  B <- build_B_with_data(Cmat = Cmat,
+                         phi = phi,
+                         b = b,
+                         S = S,
+                         P = P)
+  K <- R * solve(-1*B)
+  return(list(K = K, R = R, B = B))
+}
+
+```
+
+---
+
+# The epi. model
+## Establishing species parameters
+
+* We need to establish some relevant information about each species in order to build our models.
+--
+
+* Specifically we need
+  - Birth rate
+  - Death rate
+  - Recovery rate
+  - Dispersal rate
+  - transmission rate
+  - Connectivity between patches
+  
+---
+
+# The Epi model
+## Birth rate
+
+* This is pretty simple
+* Since we are looking within a season, I set birth rate = 0 for all species
+
+---
+# The Epi model
+## Death rate
+
+Species        | death rate (d)
+---------------|---------------------------------------------------
+P. regilla     | 0.024
+A. boreas      | 0.0029
+L. catesbeianus| 0.144
+L. draytonii   | 0.04
+T. granulosa   | Between P. regilla and A. boreas
+T. torosa      | Between P. regilla and A. boreas
+---
+
+# The Epi model
+## Recovery rate
+
+* Finding reliable information on the recovery rate of adults has proven... difficult
+* I found 1 study and for the rest I assigned random values that I believe are ecologically relevant
+
+Species        | recovery rate (b)
+---------------|---------------------------------------------------
+P. regilla     | Should be lowest
+A. boreas      | Should be lower than L. catesbeianus
+L. catesbeianus| 0.012
+L. draytonii   | Should be highest
+T. granulosa   | Because it is a newt, should be relatively high
+T. torosa      | Because it is a newt, should be relatively high
+
+---
+
+# The Epi model
+## Transmission rate
+
+* $\beta$ is... hard. and worth talking about for a minute
+* Few studies I have found directly state a value for $\beta$
+* So I have elected to use ecological context and "fill in the blanks"
+* For this part I make 2 key assumptions
+  1. The most abundant species will have the highest $\beta$
+  2. $\beta_{ss}$ will likely be higher than $\beta_{si}$
+  
+* I will spare you the code the create the necessary S*S $\beta$ matrix, but I do want to show the resulting matrix and graph
+
+---
+# The Epi model
+## Transmission rate (cont'd)
+
+```{r trans rate, echo=FALSE, include = FALSE, results ='hide'}
+x <- seq(0,1,length = 100)
+trans_rate <- function(n = 1,x = seq(0,1,length = 100),a,b){
+  trans <- rbeta(n = n, shape1 = a, shape2 = b)
+  plot(x = seq(0,1, length.out = 100), y = dbeta(x, shape1 = a, shape2 = b))
+  return(trans)
+}
+
+# PREG
+intra_PREG <- trans_rate(a = 4,b = 2)
+inter_PREG <- trans_rate(a = 4, b = 2.5)
+
+plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 4, shape2 = 2.5), col = "blue")
+
+
+# TGRAN
+intra_TGRAN <- trans_rate(a = 4, b = 2.25)
+inter_TGRAN <- trans_rate(a = 4, b = 2.5)
+
+plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.25), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 4, shape2 = 2.5), col = "blue")
+
+#TTOR
+intra_TTOR <- trans_rate(a = 3, b = 2.5)
+inter_TTOR <- trans_rate(a = 3, b = 2.75)
+
+plot(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.5), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 3, shape2 = 2.75), col = "blue")
+
+#ABOR
+intra_ABOR <- trans_rate(a = 2.5, b = 2.75)
+inter_ABOR <- trans_rate(a = 2.5, b = 3.0)
+
+plot(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 2.75), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 2.5, shape2 = 3.0), col = "blue")
+
+#RCAT
+intra_RCAT <- trans_rate(a = 2.0, b = 3.0)
+inter_RCAT <- trans_rate(a = 2.0, b = 3.25)
+
+plot(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.0), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 2.0, shape2 = 3.25), col = "blue")
+
+#RDRAY
+intra_RDRAY <- trans_rate(a = 1.5, b = 3.25)
+inter_RDRAY <- trans_rate(a = 1.5, b = 3.5)
+
+plot(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.25), ylab = "density", type = 'l', col = "red")
+lines(x=x, dbeta(x, shape1 = 1.5, shape2 = 3.5), col = "blue")
+```
+
+```{r beta matrix, echo=FALSE}
+beta <- matrix(data = NA, nrow = num_spp, ncol = num_spp)
+for (i in 1:nrow(beta)) {
+  for (j in 1:ncol(beta)) {
+    beta[i,j] <- if(i == 1 & j == 1){
+      intra_PREG}else if(i != 1 & j == 1){
+        inter_PREG} else if(i == 2 & j == 2){
+          intra_TGRAN} else if(i != 2 & j == 2){
+            inter_TGRAN} else if(i == 3 & j == 3){
+              intra_TTOR} else if(i != 3 & j == 3){
+                inter_TTOR} else if(i == 4 & j == 4){
+                  intra_ABOR} else if(i != 4 & j == 4){
+                    inter_ABOR} else if(i == 5 & j == 5){
+                      intra_RCAT} else if(i != 5 & j ==5){
+                        inter_RCAT} else if(i == 6 & j == 6){
+                          intra_RDRAY} else if(i != 6 & j == 6){
+                            inter_RDRAY}
+  }
+}
+beta <- beta/90
+beta
+```
+  

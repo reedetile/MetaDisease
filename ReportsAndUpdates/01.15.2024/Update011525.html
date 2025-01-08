@@ -164,6 +164,201 @@ class: center, middle
 
 # And voila! Just like that we have 100 simulated meta-communities.
 # Now, let's get in to the epidiomoligcal modeling!
+
+---
+
+# The epi. model
+## The necessary functions
+
+* This are taken from the .py code provided by Mark. I just translated it to R.
+* There are 3 key functions
+1 "build_R_with_data" builds the necessary R matrix
+--
+
+
+``` r
+build_R_with_data &lt;- function(R0s,b,beta,S,P) {
+  fullR &lt;- matrix(data = 0, nrow = P*S, ncol = P*S)
+  for (p in 1:P) {
+    tR0 &lt;- R0s[p,]
+    Rmat &lt;- matrix(data = rep(unlist(tR0),S), nrow = S, ncol = S)
+    tb &lt;- b[p,]
+    bmat &lt;- matrix(data = rep(unlist(tb),S), nrow = S, ncol = S)
+    # I have removed the following code (in .py) but should ask mark if I need to add something for
+    # Force of infection
+    # tλ = λs[:, p]
+    # λmat = np.repeat(tλ, S).reshape(S, S).T
+    # λ_ratios = λmat / λmat.T    
+    Rmat &lt;- Rmat * bmat
+    Rmat[is.nan(Rmat)] = 0
+    Rmat[is.infinite(Rmat)] = 0
+    Rmat &lt;- as.matrix(Rmat)
+    start &lt;- ifelse(p == 1, p,(S*p)-(S-1))
+    stop &lt;- start + S - 1
+    fullR[start:stop, start:stop] &lt;- Rmat
+  }
+  
+  return(fullR)
+}
+```
+
+---
+# The epi. model
+## The necessary functions
+
+* This are taken from the .py code provided by Mark. I just translated it to R.
+* There are 3 key functions
+2 "build_B_with_data" builds the necessary B matrix
+
+
+``` r
+build_B_with_data &lt;- function(Cmat, phi, b, S, P) {
+  Cmat_axis &lt;- colSums(Cmat)
+  diag_list &lt;- vector("list",P^2)
+  diag_list_names &lt;- array(dim = c(sqrt(length(diag_list)), sqrt(length(diag_list))))
+  for (p in 1:P) { #loop over columns
+    for (j in 1:P) { #loop over rows
+      diag_list_names[j,p] &lt;- paste(p,j,sep="_")
+    }
+  }
+  diag_list_names &lt;- as.vector(diag_list_names)
+  names(diag_list) &lt;- diag_list_names
+  for (p in 1:P) { #loop over columns
+    for (j in 1:P) { #loop over rows
+      tZ &lt;- matrix(0,nrow = S, ncol = S)
+      new_diag &lt;- array(dim = S)
+      new_diag &lt;- if(p == j){
+        (-1)*b[p,] - phi*Cmat_axis[p]
+        } else{
+          phi*Cmat[j,p]
+          }
+      diag(tZ) &lt;- new_diag
+      x &lt;- paste(p,j,sep="_")
+      diag_list[[x]] &lt;- tZ 
+    }
+  }
+  diag_matrix &lt;- matrix(diag_list, nrow = P, ncol = P)
+  tB &lt;- list()
+  for (j in 1:P) {
+    tB[[j]] &lt;- matrix(data = unlist(diag_matrix[j,]), nrow = S*P, ncol = S, byrow = T) #looks like this worked!
+  }
+  
+  B &lt;- do.call(cbind, tB[1:P]) #need to determine if this is what B should look like
+  return(B) 
+}
+```
+
+---
+
+# The epi. model
+## The necessary functions
+
+* This are taken from the .py code provided by Mark. I just translated it to R.
+* There are 3 key functions
+3 "landscape_R0" The max eigen value of K is landscape `\(R_0\)`
+
+
+``` r
+landscape_R0 &lt;- function(R0_spps,Cmat,b, beta, phi,S,P){
+  R &lt;- build_R_with_data(R0s = R0_spps,
+                         b = b,
+                         beta = beta,
+                         S = S,
+                         P = P)
+  B &lt;- build_B_with_data(Cmat = Cmat,
+                         phi = phi,
+                         b = b,
+                         S = S,
+                         P = P)
+  K &lt;- R * solve(-1*B)
+  return(list(K = K, R = R, B = B))
+}
+```
+
+---
+
+# The epi. model
+## Establishing species parameters
+
+* We need to establish some relevant information about each species in order to build our models.
+--
+
+* Specifically we need
+  - Birth rate
+  - Death rate
+  - Recovery rate
+  - Dispersal rate
+  - transmission rate
+  - Connectivity between patches
+  
+---
+
+# The Epi model
+## Birth rate
+
+* This is pretty simple
+* Since we are looking within a season, I set birth rate = 0 for all species
+
+---
+# The Epi model
+## Death rate
+
+Species        | death rate (d)
+---------------|---------------------------------------------------
+P. regilla     | 0.024
+A. boreas      | 0.0029
+L. catesbeianus| 0.144
+L. draytonii   | 0.04
+T. granulosa   | Between P. regilla and A. boreas
+T. torosa      | Between P. regilla and A. boreas
+---
+
+# The Epi model
+## Recovery rate
+
+* Finding reliable information on the recovery rate of adults has proven... difficult
+* I found 1 study and for the rest I assigned random values that I believe are ecologically relevant
+
+Species        | recovery rate (b)
+---------------|---------------------------------------------------
+P. regilla     | Should be lowest
+A. boreas      | Should be lower than L. catesbeianus
+L. catesbeianus| 0.012
+L. draytonii   | Should be highest
+T. granulosa   | Because it is a newt, should be relatively high
+T. torosa      | Because it is a newt, should be relatively high
+
+---
+
+# The Epi model
+## Transmission rate
+
+* `\(\beta\)` is... hard. and worth talking about for a minute
+* Few studies I have found directly state a value for `\(\beta\)`
+* So I have elected to use ecological context and "fill in the blanks"
+* For this part I make 2 key assumptions
+  1. The most abundant species will have the highest `\(\beta\)`
+  2. `\(\beta_{ss}\)` will likely be higher than `\(\beta_{si}\)`
+  
+* I will spare you the code the create the necessary S*S `\(\beta\)` matrix, but I do want to show the resulting matrix and graph
+
+---
+# The Epi model
+## Transmission rate (cont'd)
+
+
+
+
+```
+##             [,1]        [,2]        [,3]        [,4]        [,5]        [,6]
+## [1,] 0.009460067 0.004686141 0.003182195 0.003693854 0.004496077 0.003307967
+## [2,] 0.009451967 0.003015229 0.003182195 0.003693854 0.004496077 0.003307967
+## [3,] 0.009451967 0.004686141 0.004483438 0.003693854 0.004496077 0.003307967
+## [4,] 0.009451967 0.004686141 0.003182195 0.003428599 0.004496077 0.003307967
+## [5,] 0.009451967 0.004686141 0.003182195 0.003693854 0.002222052 0.003307967
+## [6,] 0.009451967 0.004686141 0.003182195 0.003693854 0.004496077 0.004919702
+```
+  
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
