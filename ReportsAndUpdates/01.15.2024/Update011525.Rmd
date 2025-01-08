@@ -1,0 +1,150 @@
+---
+title: "Meta-disease update"
+author: "Reed Scott"
+institute: "University of Vermont"
+date: "`r Sys.Date()`"
+output:
+  xaringan::moon_reader:
+    css: ["custom.css"]
+    includes:
+    after_body: insert-logo.html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024")
+setwd("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024")
+library(vegan)
+```
+
+# Goals for today?
+
+1. Background
+2. Establishing meta-communities
+3. Running simulations
+
+---
+
+# Background
+## General Refresher
+
+* Previous studies have shown that biodiversity is an important part disease dynamics
+--
+
+* However, none have looked at these within the context of a meta-community
+--
+
+* We assert that the *difference* between communities ($\beta diversity$) may play an important role in disease dynamics
+--
+
+* In this project we will be building on prior work done by Mark, which established methods for calculating a landscape level $R_0$
+---
+
+# Background
+## Study system
+
+* Originally, I had suggest this use a "fake system" with species that acted as charicatures of real species
+--
+
+* However, I have found that difficult
+--
+
+* Instead, I will focus on a simulation of a real system. I will use 6 real species and 1 real disease. Those are:
+  - *P. regilla*
+  - *A. boreas*
+  - *T. Granulosa*
+  - *T. torosa*
+  - *R. catesbianus*
+  - *R. draytonii*
+  - And the amphibian chytrid fungus
+* To do this, I will have to use real world parameters of these species, which I will get into later.
+---
+
+# Background
+## Hypotheses
+
+* Our goal: to understand the how a diverse array of communities can impact disease risk
+--
+
+* Our specific hypothesis: as $\beta$ diversity increases, landscape level $R_0$ should decrease
+
+---
+
+# Establishing meta-communities
+
+* Up until now, I feel I've largely glossed over how I formed the simulated metacommunities I want to use for this study.
+* I think it's about time I described them in a decent amount of detail, so here goes.
+
+---
+
+# Establishing meta-communities
+
+First, we set up the number of possible species, number of patches, $\psi$ for each species, and rank abundance
+
+```{r Init meta params}
+set.seed(1234)
+num_patches <- 5 #number of patches in metacommunity
+num_spp <- 6 #number of POSSIBLE spp in metacommunity
+S <- c(0.83, #PREG
+       0.62, #TGRAN
+       0.14, #TTOR
+       NA, #ABOR
+       0.12, #RCAT
+       0.64) #RDRAY
+S[4] <- runif(n = 1, min = S[5], max = S[3])
+K <- c(10,6,5,4,3,2) 
+```
+
+---
+
+# Establishing meta-communities
+Then we simulate 100 different meta-communities.
+I will explain in depth how I did that
+
+```{r build metas}
+N <- 100 #number of metacommunity simulations to run
+meta_comm_list <- vector("list",N)
+beta_list <- vector("list", N)
+nestedness_list <- vector("list", N)
+for(n in 1:N){
+  meta_comm <- data.frame(matrix(NA, nrow = num_patches, ncol = num_spp))
+  for(i in 1:nrow(meta_comm)){
+    for(j in 1:ncol(meta_comm)){
+      #determine occurrence and abundance of spp 1
+      meta_comm[i,1] <- rbinom(n = 1, size = 1, prob = S[1])
+      meta_comm[i,1] <- ifelse(meta_comm[i,1] == 1, K[1],0)
+      
+      #determine occurrence and abundance of spp2
+      meta_comm[i,2] <- rbinom(n = 1, size = 1, prob = S[2])
+      meta_comm[i,2] <- ifelse(meta_comm[i,2] == 1, K[2],0)
+      
+      #determine occurrence and abundance of spp 3
+      meta_comm[i,3] <- rbinom(n = 1, size = 1, prob = S[3])
+      meta_comm[i,3] <- ifelse(meta_comm[i,3] == 1, K[3],0)
+      
+      #determine occurrence and abundance of spp 4
+      meta_comm[i,4] <- rbinom(n = 1, size = 1, prob = S[4])
+      meta_comm[i,4] <- ifelse(meta_comm[i,4] == 1, K[4],0)
+      
+      #determine occurrence and abundance of spp 5
+      meta_comm[i,5] <- rbinom(n = 1, size = 1, prob = S[5])
+      meta_comm[i,5] <- ifelse(meta_comm[i,5] == 1, K[5],0)
+      
+      #determine occurrence and abundance of spp 6
+      meta_comm[i,6] <- rbinom(n = 1, size = 1, prob = S[6])
+      meta_comm[i,6] <- ifelse(meta_comm[i,6] == 1, K[6],0)
+    }
+  }
+  meta_comm$Patch <- c('Patch1','Patch2','Patch3','Patch4','Patch5')
+  colnames(meta_comm) <- c('Spp1','Spp2','Spp3','spp4','spp5','Spp6','PatchID')
+  beta_list[[n]] <- mean(betadiver(meta_comm[,1:6], method = 'w'))
+  nestedness_list[[n]] <- nestedtemp(comm = meta_comm[,1:6])[7]
+  meta_comm_list[[n]] <- meta_comm
+}
+```
+
+---
+
+class: center, middle
+
+# And voila! Just like that we have 100 simulated meta-communities.
+# Now, let's get in to the epidiomoligcal modeling!

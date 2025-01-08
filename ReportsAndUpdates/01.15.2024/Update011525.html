@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Meta-disease update</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Reed Scott" />
+    <meta name="date" content="2025-01-08" />
+    <script src="Update011525_files/header-attrs-2.28/header-attrs.js"></script>
+    <link rel="stylesheet" href="custom.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Meta-disease update
+]
+.author[
+### Reed Scott
+]
+.institute[
+### University of Vermont
+]
+.date[
+### 2025-01-08
+]
+
+---
+
+
+
+
+# Goals for today?
+
+1. Background
+2. Establishing meta-communities
+3. Running simulations
+
+---
+
+# Background
+## General Refresher
+
+* Previous studies have shown that biodiversity is an important part disease dynamics
+--
+
+* However, none have looked at these within the context of a meta-community
+--
+
+* We assert that the *difference* between communities ($\beta diversity$) may play an important role in disease dynamics
+--
+
+* In this project we will be building on prior work done by Mark, which established methods for calculating a landscape level `\(R_0\)`
+---
+
+# Background
+## Study system
+
+* Originally, I had suggest this use a "fake system" with species that acted as charicatures of real species
+--
+
+* However, I have found that difficult
+--
+
+* Instead, I will focus on a simulation of a real system. I will use 6 real species and 1 real disease. Those are:
+  - *P. regilla*
+  - *A. boreas*
+  - *T. Granulosa*
+  - *T. torosa*
+  - *R. catesbianus*
+  - *R. draytonii*
+  - And the amphibian chytrid fungus
+* To do this, I will have to use real world parameters of these species, which I will get into later.
+---
+
+# Background
+## Hypotheses
+
+* Our goal: to understand the how a diverse array of communities can impact disease risk
+--
+
+* Our specific hypothesis: as `\(\beta\)` diversity increases, landscape level `\(R_0\)` should decrease
+
+---
+
+# Establishing meta-communities
+
+* Up until now, I feel I've largely glossed over how I formed the simulated metacommunities I want to use for this study.
+* I think it's about time I described them in a decent amount of detail, so here goes.
+
+---
+
+# Establishing meta-communities
+
+First, we set up the number of possible species, number of patches, `\(\psi\)` for each species, and rank abundance
+
+
+``` r
+set.seed(1234)
+num_patches &lt;- 5 #number of patches in metacommunity
+num_spp &lt;- 6 #number of POSSIBLE spp in metacommunity
+S &lt;- c(0.83, #PREG
+       0.62, #TGRAN
+       0.14, #TTOR
+       NA, #ABOR
+       0.12, #RCAT
+       0.64) #RDRAY
+S[4] &lt;- runif(n = 1, min = S[5], max = S[3])
+K &lt;- c(10,6,5,4,3,2) 
+```
+
+---
+
+# Establishing meta-communities
+Then we simulate 100 different meta-communities.
+I will explain in depth how I did that
+
+
+``` r
+N &lt;- 100 #number of metacommunity simulations to run
+meta_comm_list &lt;- vector("list",N)
+beta_list &lt;- vector("list", N)
+nestedness_list &lt;- vector("list", N)
+for(n in 1:N){
+  meta_comm &lt;- data.frame(matrix(NA, nrow = num_patches, ncol = num_spp))
+  for(i in 1:nrow(meta_comm)){
+    for(j in 1:ncol(meta_comm)){
+      #determine occurrence and abundance of spp 1
+      meta_comm[i,1] &lt;- rbinom(n = 1, size = 1, prob = S[1])
+      meta_comm[i,1] &lt;- ifelse(meta_comm[i,1] == 1, K[1],0)
+      
+      #determine occurrence and abundance of spp2
+      meta_comm[i,2] &lt;- rbinom(n = 1, size = 1, prob = S[2])
+      meta_comm[i,2] &lt;- ifelse(meta_comm[i,2] == 1, K[2],0)
+      
+      #determine occurrence and abundance of spp 3
+      meta_comm[i,3] &lt;- rbinom(n = 1, size = 1, prob = S[3])
+      meta_comm[i,3] &lt;- ifelse(meta_comm[i,3] == 1, K[3],0)
+      
+      #determine occurrence and abundance of spp 4
+      meta_comm[i,4] &lt;- rbinom(n = 1, size = 1, prob = S[4])
+      meta_comm[i,4] &lt;- ifelse(meta_comm[i,4] == 1, K[4],0)
+      
+      #determine occurrence and abundance of spp 5
+      meta_comm[i,5] &lt;- rbinom(n = 1, size = 1, prob = S[5])
+      meta_comm[i,5] &lt;- ifelse(meta_comm[i,5] == 1, K[5],0)
+      
+      #determine occurrence and abundance of spp 6
+      meta_comm[i,6] &lt;- rbinom(n = 1, size = 1, prob = S[6])
+      meta_comm[i,6] &lt;- ifelse(meta_comm[i,6] == 1, K[6],0)
+    }
+  }
+  meta_comm$Patch &lt;- c('Patch1','Patch2','Patch3','Patch4','Patch5')
+  colnames(meta_comm) &lt;- c('Spp1','Spp2','Spp3','spp4','spp5','Spp6','PatchID')
+  beta_list[[n]] &lt;- mean(betadiver(meta_comm[,1:6], method = 'w'))
+  nestedness_list[[n]] &lt;- nestedtemp(comm = meta_comm[,1:6])[7]
+  meta_comm_list[[n]] &lt;- meta_comm
+}
+```
+
+---
+
+class: center, middle
+
+# And voila! Just like that we have 100 simulated meta-communities.
+# Now, let's get in to the epidiomoligcal modeling!
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create();
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

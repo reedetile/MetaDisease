@@ -122,13 +122,13 @@ for(n in 1:N){
   nestedness_list[[n]] <- nestedtemp(comm = meta_comm[,1:6])[7]
   meta_comm_list[[n]] <- meta_comm
 }
-nestedness <- unlist(x = nestedness_list)
-beta <- unlist(x = beta_list)
-meta_comm_vars <- data.frame(Diversity = beta, Nest = nestedness) 
-
-
-meta_comm_list[[2]]
-beta_diversity <- betadiver(meta_comm1[,1:6], method = 'w')
+# nestedness <- unlist(x = nestedness_list)
+# beta <- unlist(x = beta_list)
+# meta_comm_vars <- data.frame(Diversity = beta, Nest = nestedness) 
+# 
+# 
+# meta_comm_list[[2]]
+# beta_diversity <- betadiver(meta_comm1[,1:6], method = 'w')
 #plot(beta_diversity)
 
 
