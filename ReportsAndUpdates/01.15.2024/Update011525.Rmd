@@ -18,6 +18,7 @@ library(tidyverse)
 library(ggplot2)
 library(RColorBrewer)
 library(patchwork)
+library(gt)
 set.seed(1234)
 ```
 
@@ -333,6 +334,54 @@ T. torosa      | Because it is a newt, should be relatively high
 # The Epi model
 ## Transmission rate (cont'd)
 
+```{r hidden params, echo = FALSE}
+Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
+# PREG = Pseudacris Regilla (Pacific tree frog)
+# ABOR = Anaxyrus boreas (western toad)
+# RCAT = Rana catesbeiana (American bullfrog)
+# RDRAY = Rana draytonii (Califronia red legged frog)
+# TTOR = Taricha torosa (California newt)
+# TGRAN = Taricha granulosa (rough-skinned newt)
+
+birth <- rep(0, times = 6) #currently have birth rate set to 0 b/c this is a within season model
+# if we change to a multi-season model, will need to add in some birth rate
+# b <- c(0.6,0.5,0.4,0.3,0.2,0.1)/time #host birth rate
+d <- c(0.024,
+       NA,
+       NA,
+       0.0029,
+       0.0144,
+       0.04)
+d[2] <- runif(n = 1, min = d[[4]], max = d[[1]])       
+d[3] <- runif(n = 1, min = d[[4]], max = d[[2]])       
+# Citations for death rate
+# PREG = Jameson 1956
+# ABOR = Pilliod 2010
+# RCAT = Howell 2020
+# RDRAY = Feller 2017
+# TTOR = johnson 2013 + assumptions of dilution effects
+# TGRAN =  johnson 2013 + assumptions of dilution effects
+v <- c(NA,
+       NA,
+       NA,
+       NA,
+       0.012460223,
+       NA)
+# Citation for RCAT recovery = Daszak 2004
+low_recovery <- runif(n = 4, min = 0, max = v[5])
+v[1] <- min(low_recovery)
+v[4] <- max(low_recovery)
+mid_low_recovery <- low_recovery[low_recovery != v[1] & low_recovery != v[4]]
+v[2] <- min(mid_low_recovery)
+v[3] <- max(mid_low_recovery)
+v[6] <- runif(n = 1, min = v[5], max = 0.1) #should find citation for max recovery rate
+v
+
+#Determining dispersal rate
+psi <- c(0.83, 0.62, 0.14,NA, 0.12,0.64)
+psi[4] <- runif(n = 1, min = psi[5], max = psi[3])
+```
+
 ```{r trans rate, echo=FALSE, include = FALSE, results ='hide'}
 x <- seq(0,1,length = 100)
 trans_rate <- function(n = 1,x = seq(0,1,length = 100),a,b){
@@ -405,6 +454,155 @@ for (i in 1:nrow(beta)) {
   }
 }
 beta <- beta/90
-beta
+gt(data.frame(beta))
 ```
+---
+
+# Connectivty of Patches
+
+* I assumed  that all patches had the same connectivity
+* I also assumed that the likelihood of staying was higher than the likelihood of moving between patches.
+* This resulted in the following matrix:
+--
+
+```{r connectivity, echo = FALSE}
+#Connectivity of patches
+stay <- rbeta(n = 1, shape1 = 4, shape2 = 2) #probability individuals stay in a patch?
+go <- rbeta(n = 1, shape1 = 1.5, shape2 = 3.5) # probability individuals move
+c <- matrix(data = NA,
+            nrow = num_patches, 
+            ncol = num_patches)
+for(i in 1:ncol(c)){
+  for(j in 1:nrow(c)){
+    c[i,j] <- ifelse(i == j, stay, go)
+  }
+}
+gt(data.frame(c))
+```
+
+---
+
+# The Simulation
+
+* Okay, so everything is coming to a head.
+--
+
+* We have built the meta-communities, and established the necessary parameters.
+--
+
+* Now it's time to read it all into a simulation
+--
+
+```{r The simul}
+
+# Simulation over metacommunities
+result2 <- data.frame(matrix(data = NA, nrow = length(meta_comm_list), ncol = 18))
+colnames(result2) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY",
+                       "PREG_rel","TGRAN_rel","TTOR_rel","ABOR_rel","RCAT_rel","RDRAY_rel",
+                       "BetaDiversity","Gamma_diversity",
+                       "Beta_relative","LandscapeR0", "MetaCommID")
+for (a in 1:length(meta_comm_list)) {
+  S <- ceiling(meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #value of susceptibles
+  I <- meta_comm_list[[a]][,1:6] - S #value of infecteds
+  N <- S+I #total pop of a patch
+  S <- as.matrix(S)
+  I <- as.matrix(I)
+  N <- as.matrix(N)
+  N_meta <- colSums(N)
+  phi <- ifelse(N_meta > 0, psi/N_meta, 0) #get dispersal rate
+  r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
+  b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
+  for (p in 1:num_patches) {
+    for(q in 1:num_patches){
+      for (i in 1:num_spp) {
+        for (j in 1:num_spp) {
+          #establish parameters for time t of species s
+          connectivity_s <- phi[i]*sum(-c[p,q]*S[p,i] + c[q,p]*S[q,i])
+          connectivity_I <- phi[i]*sum(-c[p,q]*I[p,i] + c[q,p]*I[q,i])
+          birth_rate <- birth[i]*N[p,i]
+          death_s <- d[i]*S[p,i]
+          loss_I <- (v[i]+d[i])*I[p,i]
+          FI <- ifelse(N[p,j] > 0, beta[i,j]*S[p,i]*(I[p,j]/N[p,j]), 0)
+          
+          #change in rate of susceptible + infectious individuals
+          
+          #calculate R0 for each species at each patch
+          b[p,i] <- v[i] + d[i] #gets loss rate
+          r0_species_patch[p,i] <- beta[i,i]/b[p,i]
+        }
+      }
+    }
+  }
   
+  result2[a,1] <- sum(N) #total abundance
+  #abdunance of each species
+  for (i in 2:(1+num_spp)) {
+    result2[a,i] <- sum(N[,i-1])
+    result2[a,(i+num_spp)] <- result2[a,i]/result2[a,1]
+  }
+  
+  #add beta diversity
+  beta_diversity <- betadiver(N, method = 'w')
+  result2[a,14] <- mean(beta_diversity, na.rm =T) #beta diversity
+  result2[a,15] <- sum(ifelse(result2[a,1:6] > 0, 1,0)) #gamma diversity
+  
+  result2[a,16] <- result2[a,7]/result2[a,8] #beta diversity / total abundance
+
+    #calculate landscape R0
+  r0_landscape <- landscape_R0(R0_spps = r0_species_patch,
+                               Cmat = c,
+                               b = b,
+                               beta = beta,
+                               phi = phi,
+                               S = num_spp,
+                               P = num_patches)
+  
+  result2[a,17] <- eigen(r0_landscape[[1]])$values[1] #landscape R0
+  result2[a,18] <- a #metacommunity ID
+}
+```
+
+---
+
+# The Simulation
+## Results
+
+```{r sim output, echo = FALSE}
+gt(head(result2))
+```
+        
+---
+
+class: center, middle
+# Are you excited? Because I'm excited
+## Let's look at some graph
+
+---
+
+# Graphing
+
+.pull-left[
+* First, I wanted to check the relationship between $\beta$ diversity and $R_{0L}$
+]
+
+```{r beta graph, echo = F, message=FALSE}
+beta_plot <- ggplot(data = result2, aes(x = BetaDiversity, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  theme_classic()+
+  labs(title = 'Effect of Beta diversity on Landscape R0')
+beta_plot
+```
+---
+
+# Graphing
+* Hmm, not what we predicted. I wonder if abundance has an affect
+
+```{r abund graph, echo = F, message=FALSE}
+abun_R0_plot <- ggplot(data = result2, aes(x = TotalAbundance, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = 'lm')+
+  theme_classic()+
+  labs(title = 'Effect of Abundance on Landscape R0')
+abun_R0_plot
+```

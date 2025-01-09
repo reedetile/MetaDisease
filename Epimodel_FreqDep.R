@@ -1,6 +1,6 @@
 #Description-----------------------------------------
-#Rough draft script for a meta-community disease model
-#  22 Nov 2024
+#description of script
+#  09 Jan 2025
 #RCS
 
 #Initialize -----------------------------------------
@@ -12,225 +12,16 @@ library(patchwork)
 source('Occu_abun_practice.R')
 set.seed(1234)
 
-# Define Fucntions------------------------------------
-#######################################################
-# FUNCTION: build_R_with_data
-# Purpose: to calculate R matrix with data
-#input:R0s, b, beta, S, P
-#R0s = An Pxs Matrix with the species species specific R0 at each patch
-# b = An PxS matrix. The relative loss rate of infecteds for each species in a patch
-# beta = an SxS matrix. The transmission coefficient between species i and species j
-# S = number of species
-# P = number of patches
-#output: fullR.an S*P by S*P matrix. 
-#-----------------------------------------------------
-
-build_R_with_data <- function(R0s,b,beta,S,P) {
-  fullR <- matrix(data = 0, nrow = P*S, ncol = P*S)
-  for (p in 1:P) {
-    tR0 <- R0s[p,]
-    Rmat <- matrix(data = rep(unlist(tR0),S), nrow = S, ncol = S)
-    tb <- b[p,]
-    bmat <- matrix(data = rep(unlist(tb),S), nrow = S, ncol = S)
-    # I have removed the following code (in .py) but should ask mark if I need to add something for
-    # Force of infection
-    # tλ = λs[:, p]
-    # λmat = np.repeat(tλ, S).reshape(S, S).T
-    # λ_ratios = λmat / λmat.T    
-    Rmat <- Rmat * bmat
-    Rmat[is.nan(Rmat)] = 0
-    Rmat[is.infinite(Rmat)] = 0
-    Rmat <- as.matrix(Rmat)
-    start <- ifelse(p == 1, p,(S*p)-(S-1))
-    stop <- start + S - 1
-    fullR[start:stop, start:stop] <- Rmat
-  }
-  
-  return(fullR)
-}
-
-#######################################################
-# FUNCTION: build_B_with_data
-# Purpose: To calculate B matrix with data
-# input:Cmat, As, psi, b, S, P
-# Cmat = A pXp matrix. Colonization probability c_ij from patch j -> i
-# As = relative patch areas (set at 1)
-# phi = dispersal rate for each species.
-# b = a SxP matrix. Relative loss rates of infected for each species
-# S = int. number of species
-# P = int. number of patches
-#
-#output:
-#-----------------------------------------------------
-build_B_with_data <- function(Cmat, phi, b, S, P) {
-  Cmat_axis <- colSums(Cmat)
-  diag_list <- vector("list",P^2)
-  diag_list_names <- array(dim = c(sqrt(length(diag_list)), sqrt(length(diag_list))))
-  for (p in 1:P) { #loop over columns
-    for (j in 1:P) { #loop over rows
-      diag_list_names[j,p] <- paste(p,j,sep="_")
-    }
-  }
-  diag_list_names <- as.vector(diag_list_names)
-  names(diag_list) <- diag_list_names
-  for (p in 1:P) { #loop over columns
-    for (j in 1:P) { #loop over rows
-      tZ <- matrix(0,nrow = S, ncol = S)
-      new_diag <- array(dim = S)
-      new_diag <- if(p == j){
-        (-1)*b[p,] - phi*Cmat_axis[p]
-        } else{
-          phi*Cmat[j,p]
-          }
-      diag(tZ) <- new_diag
-      x <- paste(p,j,sep="_")
-      diag_list[[x]] <- tZ 
-    }
-  }
-  diag_matrix <- matrix(diag_list, nrow = P, ncol = P)
-  tB <- list()
-  for (j in 1:P) {
-    tB[[j]] <- matrix(data = unlist(diag_matrix[j,]), nrow = S*P, ncol = S, byrow = T) #looks like this worked!
-  }
-  
-  B <- do.call(cbind, tB[1:P]) #need to determine if this is what B should look like
-  return(B) 
-}
-
-####################################################################
-# Function: landscape_R0
-# Purpose: Calculate the landscape level R0 from the data
-#Input: R0s, Cmat, phi, b, S, P
-# R0s_spps = SxP matrix. Each entry is the species-specific R0 for species s in patch p
-# Cmat = a PxP matrix. The colonization probabilities c_ij from patch j -> i
-# phi = an array of length S. The dispersal rates for each species
-# b = An SxP array. Relative loss rates of infecteds for each species in a patch
-# beta = a transmission coefficient between species
-# S = int. Number of species
-# P = int. Number of patches
-#Output: K. an S*P x S*P matrix. The matrix should be ordered by patch then by species. max eigenvalue of K = landscape R0.
-# R, a component of K, and B, a component of K
-landscape_R0 <- function(R0_spps,Cmat,b, beta, phi,S,P){
-  R <- build_R_with_data(R0s = R0_spps,
-                         b = b,
-                         beta = beta,
-                         S = S,
-                         P = P)
-  B <- build_B_with_data(Cmat = Cmat,
-                         phi = phi,
-                         b = b,
-                         S = S,
-                         P = P)
-  K <- R * solve(-1*B)
-  return(list(K = K, R = R, B = B))
-}
-
-# Example of using the 3 functions
-S <- 6 #number of species
-P <- 5 #number of patches
-R0s <- matrix(data = rnorm(n = S*P, mean = 1, sd = 0.1), nrow = P, ncol = S)
-b <- matrix(data = rnorm(n = S*P, mean = 1, sd = 0.1), nrow = P, ncol = S)
-phi <- rnorm(n = 6, mean = 0.5, sd = 0.1)
-#transmission
-beta <- matrix(data = NA, nrow = S, ncol = S)
-for (i in 1:nrow(beta)) {
-  for (j in 1:ncol(beta)) {
-    beta[i,j] <- ifelse(i == j, rbeta(n = 1, shape1 = 2, shape2 = 10),rbeta(n = 1, shape1 = 1, shape2 = 1)) 
-  }
-}
-#connectivity
-c <- matrix(data = rnorm(n = P^2, mean = 0.5, sd = 0.1),
-                 nrow = P, 
-                 ncol = P)
-
-
-r <- build_R_with_data(R0s = R0s,
-                       b = b,
-                       beta = beta,
-                       S = S,
-                       P = P)
-B <- build_B_with_data(Cmat = c,
-                      phi = phi,
-                      b = b,
-                      S = S,
-                      P = P) 
-K2 <- landscape_R0(R0_spps = R0s,
-                  Cmat = c,
-                  b = b, 
-                  beta = beta, 
-                  phi = phi,
-                  S = S,
-                  P = P)
-eigen(K2[[1]])$values[1]
-View(K2[[1]])
-########################################
-### Environmental Pool model
-#######################################
-
-# Parameters-------------------------------------
-#starting values
-#S <- ceiling(meta_comm1[,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #starting value of susceptibles
-S <- meta_comm1[,1:6] #starting value of susceptibles
-I <- meta_comm1[,1:6] - S #starting value of infecteds
-N <- S+I
-Z <- 1000 #starting amount of zoospores
-
-#species characteristics
-Species <- c("Spp1","Spp2","Spp3","Spp4","spp5","spp6")
-b <- c(0.6,0.5,0.4,0.3,0.2,0.1) #host birth rate
-# Justification = ...? NEED CITATION(S)
-d <- c(0.06,0.05,0.04,0.03,0.02,0.01) #host death rate
-# Justification = ...? NEED CITATION(S)
-beta <- c(0.00013,0.00012,0.00011,0.00010,0.00009,0.00008) #transmission per species
-# Justification = ...? NEED CITATION(S)
-v <- c(0.4,0.5,0.6,0.7,0.8,0.9) #recovery rate
-# Justification = ...? NEED CITATION(S)
-phi <- c(0.09,0.08,0.07,0.06,0.05,0.04) #dispersal rate
-# Justification = ...? NEED CITATION(S)
-lambda <- c(3.0,2.5,2.0,1.5,1.0,0.5) #log(bd) load. losely based off figure 2 from wilber 2020
-# Justification = Wilber 2020. Could use more citations
-species_chara <- data.frame(Species = Species,
-                            birth = b, 
-                            death = d, 
-                            trans = beta, 
-                            recovery = v, 
-                            dispersal = phi, 
-                            shedding = lambda)
-
-# meta-community characteristics
-gamma <- 0.001 #zoospore decay rate
-c <- matrix(data = rnorm(n = num_patches^2, mean = 0.5, sd = 0.1),
-            nrow = num_patches, 
-            ncol = num_patches)
-#Connectivity of patches
-A <- rnorm(n = num_patches, mean = 0.5, sd = 0.1) #area ratios
-time <- 90 #how many "days" do I want in the season
+main.wd <- getwd()
+graphs <- paste(getwd(),"/Graphs",sep = "")
+# Load functions--------------------------------------
+source('Epimodel_funcs.R')
 
 # Program Body------------------------------------------
-pop_list_EP <- vector("list", length = time)
-for (t in 1:time) {
-  delta_s <- b*N - d*S - beta*S*Z + v*I + phi*sum(-c*S + c*S) #for now have excluded area of patches
-  #may want to add that back in though
-  delta_I <- beta*S*Z-(v+d)*I+phi*sum(-c*I + c*I)#for now have excluded area of patches
-  #may want to add that back in though
-  delta_Z <- sum(lambda*I - gamma*Z)
-  S <- S+delta_s
-  I <- I+delta_I
-  z <- Z+delta_Z
-  N <- S + I
-  t = t
-  pop <- list(Susceptible = S, Infectious = I, Zoospores = Z, Total = N, Time = t)
-  pop_list_EP[[t]] <- pop
-}
-  
-pop_data_EP <- do.call(rbind, pop_list_EP)
-View(pop_data_EP)  
 
 ########################################
 ### Frequency dependent time model ###
 #######################################
-source('Occu_abun_practice.R')
-
 # Parameters-------------------------------------
 #starting values
 S <- ceiling(meta_comm_list[[1]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #starting value of susceptibles
@@ -442,7 +233,7 @@ for (t in 1:time) {
           #calculate R0 for each species at each patch
           b[p,i] <- v[i] + d[i] #gets loss rate
           r0_species_patch[p,i] <- beta[i,i]/b[p,i]
-
+          
           # Below could be used for equilibrium calculation where beta_ss and b are unknown
           # Prev_prop <- ifelse(N[q,i] > 0 & N[p,i] > 0, 
           #                     (I[q,i]/N[q,i])/(I[p,i]/N[p,i]), 0)
@@ -462,7 +253,7 @@ for (t in 1:time) {
       }
     }
   }
-   # New population dynamics
+  # New population dynamics
   S <- S + delta_s_matrix
   I <- I + delta_I_matrix
   N <- S + I
@@ -729,8 +520,8 @@ for (a in 1:length(meta_comm_list)) {
   result2[a,15] <- sum(ifelse(result2[a,1:6] > 0, 1,0)) #gamma diversity
   
   result2[a,16] <- result2[a,7]/result2[a,8] #beta diversity / total abundance
-
-    #calculate landscape R0
+  
+  #calculate landscape R0
   r0_landscape <- landscape_R0(R0_spps = r0_species_patch,
                                Cmat = c,
                                b = b,
@@ -747,28 +538,32 @@ beta_plot <- ggplot(data = result2, aes(x = BetaDiversity, y = LandscapeR0))+
   geom_point()+
   geom_smooth(method = 'lm')+
   theme_classic()+
-  labs(title = 'Effect of Beta diversity on Landscape R0')
+  xlab("Beta Diversity")+
+  ylab("Landscape R0")
 beta_plot
 
 abun_R0_plot <- ggplot(data = result2, aes(x = TotalAbundance, y = LandscapeR0))+
   geom_point()+
   geom_smooth(method = 'lm')+
   theme_classic()+
-  labs(title = 'Effect of Abundance on Landscape R0')
+  xlab("Abundance")+
+  ylab("Landscape R0")
 abun_R0_plot
 
 beta_relative_plot <- ggplot(data = result2, aes(x = Beta_relative, y = LandscapeR0))+
   geom_point()+
   geom_smooth(method = 'lm')+
   theme_classic()+
-  labs(title = 'Effect of beta diversity on Landscape R0, corrected for abundnace')
+  xlab("Relative Beta Diversity")+
+  ylab("Landscape R0")
 beta_relative_plot
 
 gamma_plot <- ggplot(data = result2, aes(x = Gamma_diversity, y = LandscapeR0))+
   geom_point(position = position_jitter(h=0.15,w=0.15))+
   geom_smooth(method = 'lm')+
   theme_classic()+
-  labs(title = 'Effect of Gamma diversity on Landscape R0')
+  xlab("Gamma Diversity")+
+  ylab("Landscape R0")
 gamma_plot
 
 meta_comm_effects <- (beta_plot + abun_R0_plot)/(beta_relative_plot + gamma_plot)
@@ -887,4 +682,35 @@ Species_Rel_plots <- (ABOR_Rel_plot + PREG_Rel_plot + RCAT_Rel_plot) /
   (RDRAY_Rel_plot + TGRAN_Rel_plot + TTOR_Rel_plot)
 Species_Rel_plots
 
+# Consolidate call for plots
+beta_plot
+abun_R0_plot
+beta_relative_plot
+gamma_plot
+meta_comm_effects
 
+#Lets consolidate the total + relative abundance plots for each species
+ABOR_plots <- ABOR_Total_plot + ABOR_Rel_plot
+PREG_plots <- PREG_Total_plot + PREG_Rel_plot
+RCAT_plots <- RCAT_Total_plot + RCAT_Rel_plot
+RDRAY_plots <- RDRAY_Total_plot + RDRAY_Rel_plot 
+TTOR_plots <- TTOR_Total_plot + TTOR_Rel_plot
+TGRAN_plots <- TGRAN_Total_plot + TGRAN_Rel_plot
+
+Species_total_plots
+Species_Rel_plots
+#Save all your plots
+setwd(graphs)
+ggsave(filename = "beta_plot.png", plot = beta_plot)
+ggsave(filename = "abun_R0_plot.png", plot = abun_R0_plot)
+ggsave(filename = "beta_relative.png", plot = beta_relative_plot)
+ggsave(filename = "gamma_plot.png", plot = gamma_plot)
+ggsave(filename = "meta_comm_effects.png", plot = meta_comm_effects)
+ggsave(filename = "ABOR_plots.png", plot = ABOR_plots)
+ggsave(filename = "PREG_plots.png", plot = PREG_plots)
+ggsave(filename = "RCAT_plots.png", plot = RCAT_plots)
+ggsave(filename = "RDRAY_plots.png", plot = RDRAY_plots)
+ggsave(filename = "TTOR_plots.png", plot = TTOR_plots)
+ggsave(filename = "TGRAN_plots.png", plot = TGRAN_plots)
+ggsave(filename = "Species_total_plots.png", Species_total_plots)
+ggsave(filename = "Species_Rel_plots.png", Species_Rel_plots)
