@@ -39,7 +39,7 @@ set.seed(1234)
 * However, none have looked at these within the context of a meta-community
 --
 
-* We assert that the *difference* between communities ($\beta diversity$) may play an important role in disease dynamics
+* We assert that the *difference* between communities ( $\beta$ diversity ) may play an important role in disease dynamics
 --
 
 * In this project we will be building on prior work done by Mark, which established methods for calculating a landscape level $R_0$
@@ -162,6 +162,7 @@ class: center, middle
 
 * This are taken from the .py code provided by Mark. I just translated it to R.
 * There are 3 key functions
+
 1 "build_R_with_data" builds the necessary R matrix
 --
 
@@ -197,6 +198,7 @@ build_R_with_data <- function(R0s,b,beta,S,P) {
 
 * This are taken from the .py code provided by Mark. I just translated it to R.
 * There are 3 key functions
+
 2 "build_B_with_data" builds the necessary B matrix
 
 ```{r build_B_with_data}
@@ -243,6 +245,7 @@ build_B_with_data <- function(Cmat, phi, b, S, P) {
 
 * This are taken from the .py code provided by Mark. I just translated it to R.
 * There are 3 key functions
+
 3 "landscape_R0" The max eigen value of K is landscape $R_0$
 
 ```{r landscape_R0}
@@ -334,7 +337,7 @@ T. torosa      | Because it is a newt, should be relatively high
 # The Epi model
 ## Transmission rate (cont'd)
 
-```{r hidden params, echo = FALSE}
+```{r hidden params, echo = FALSE, results='hide'}
 Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
 # PREG = Pseudacris Regilla (Pacific tree frog)
 # ABOR = Anaxyrus boreas (western toad)
@@ -455,6 +458,36 @@ for (i in 1:nrow(beta)) {
 }
 beta <- beta/90
 gt(data.frame(beta))
+```
+---
+
+# The Epi model
+## Transmission rate (cont'd)
+### Intraspecific Transmission
+
+```{r graph intra trans, echo = F, out.width="45%"}
+#let's plot all the intraspecific trans rate just to see
+plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.0), ylab = "density", type = 'l', col = "black") #PREG
+lines(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.25), col = "red") #TGRAN
+lines(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.5), col = "blue") #TTOR
+lines(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 2.75), col = "cyan4") #ABOR
+lines(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.0), col = "blueviolet") #RCAT
+lines(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.25), col = "deeppink") #RDRAY
+```
+---
+
+# The Epi model
+## Transmission rate (cont'd)
+### Interspecific Transmission
+
+```{r graph inter trans, echo = F, out.width="45%"}
+#let's plot all the interspecific trans rate just to see
+plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.5), ylab = "density", type = 'l', col = "black") #PREG
+lines(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.5), col = "red") #TGRAN
+lines(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.75), col = "blue") #TTOR
+lines(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 3.0), col = "cyan4") #ABOR
+lines(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.25), col = "blueviolet") #RCAT
+lines(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.5), col = "deeppink") #RDRAY
 ```
 ---
 
@@ -581,28 +614,125 @@ class: center, middle
 
 # Graphing
 
-.pull-left[
 * First, I wanted to check the relationship between $\beta$ diversity and $R_{0L}$
-]
 
-```{r beta graph, echo = F, message=FALSE}
-beta_plot <- ggplot(data = result2, aes(x = BetaDiversity, y = LandscapeR0))+
-  geom_point()+
-  geom_smooth(method = 'lm')+
-  theme_classic()+
-  labs(title = 'Effect of Beta diversity on Landscape R0')
-beta_plot
+```{r beta plot, echo=FALSE, out.width="75%"}
+knitr::include_graphics("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024/figs/beta_plot.png")
 ```
 ---
 
 # Graphing
 * Hmm, not what we predicted. I wonder if abundance has an affect
 
-```{r abund graph, echo = F, message=FALSE}
-abun_R0_plot <- ggplot(data = result2, aes(x = TotalAbundance, y = LandscapeR0))+
-  geom_point()+
-  geom_smooth(method = 'lm')+
-  theme_classic()+
-  labs(title = 'Effect of Abundance on Landscape R0')
-abun_R0_plot
+```{r abund plot, echo=FALSE, out.width="75%"}
+knitr::include_graphics("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024/figs/abun_R0_plot.png")
 ```
+
+---
+
+# Graphing
+
+* This made me think, "maybe we should correct $\beta$ diversity for abundance"
+
+```{r beta_rel plot, echo=FALSE, out.width="75%"}
+knitr::include_graphics("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024/figs/beta_relative.png")
+```
+
+---
+
+# Graphing
+
+* Then I thought, "Maybe we should look at $\gamma$ diversity too!"
+
+```{r gamma plot, echo=FALSE, out.width="75%"}
+knitr::include_graphics("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024/figs/gamma_plot.png")
+```
+
+---
+
+# Graphing
+
+* Then I wanted to explore species effects
+
+```{r PREG plot, echo=FALSE, out.width="75%"}
+knitr::include_graphics("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024/figs/PREG_plots.png")
+```
+
+---
+
+# Graphing
+
+* Then I wanted to explore species effects
+
+```{r ABOR plot, echo=FALSE, out.width="75%"}
+knitr::include_graphics("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024/figs/ABOR_plots.png")
+```
+]
+
+---
+
+# Graphing
+
+* Then I wanted to explore species effects
+
+```{r RCAT plot, echo=FALSE, out.width="75%"}
+knitr::include_graphics("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024/figs/RCAT_plots.png")
+```
+]
+
+---
+
+# Graphing
+
+* Then I wanted to explore species effects
+
+```{r RDRAY plot, echo=FALSE, out.width="75%"}
+knitr::include_graphics("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024/figs/RDRAY_plots.png")
+```
+
+---
+                  
+# Graphing
+
+* Then I wanted to explore species effects
+
+```{r TTOR plot, echo=FALSE, out.width="75%"}
+knitr::include_graphics("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024/figs/TTOR_plots.png")
+```
+
+---
+                  
+# Graphing
+
+* Then I wanted to explore species effects
+
+```{r TGRAN plot, echo=FALSE, out.width="75%"}
+knitr::include_graphics("D:/gitrepos/MetaDisease/ReportsAndUpdates/01.15.2024/figs/TGRAN_plots.png")
+```
+
+---
+
+# Next Steps
+
+* Overall, I think this is big progress for this project
+--
+
+* I think there are a couple next steps / things to consider
+--
+
+* Do we want to compare different disease models?
+  - Density dependent?
+  - Environmental pool?
+--
+
+* Do we want to adjust community parameters? 
+  - Probably better to use Mark's info on dispersal (if we can)
+  - Any other adjustments to community parameters you'd like to see?
+--
+
+* Do we want to adjust epi model?
+  - Any errors you may have noticed in what I've done?
+  - Things you're curious to compare?
+--
+
+* Would we like to do some form of analysis? I think this could just be straightforward linear models

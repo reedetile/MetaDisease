@@ -4,7 +4,7 @@
     <title>Meta-disease update</title>
     <meta charset="utf-8" />
     <meta name="author" content="Reed Scott" />
-    <meta name="date" content="2025-01-09" />
+    <meta name="date" content="2025-01-10" />
     <script src="Update011525_files/header-attrs-2.28/header-attrs.js"></script>
     <link rel="stylesheet" href="custom.css" type="text/css" />
   </head>
@@ -22,7 +22,7 @@ class: center, middle, inverse, title-slide
 ### University of Vermont
 ]
 .date[
-### 2025-01-09
+### 2025-01-10
 ]
 
 ---
@@ -47,7 +47,7 @@ class: center, middle, inverse, title-slide
 * However, none have looked at these within the context of a meta-community
 --
 
-* We assert that the *difference* between communities ($\beta diversity$) may play an important role in disease dynamics
+* We assert that the *difference* between communities ( `\(\beta\)` diversity ) may play an important role in disease dynamics
 --
 
 * In this project we will be building on prior work done by Mark, which established methods for calculating a landscape level `\(R_0\)`
@@ -172,6 +172,7 @@ class: center, middle
 
 * This are taken from the .py code provided by Mark. I just translated it to R.
 * There are 3 key functions
+
 1 "build_R_with_data" builds the necessary R matrix
 --
 
@@ -208,6 +209,7 @@ build_R_with_data &lt;- function(R0s,b,beta,S,P) {
 
 * This are taken from the .py code provided by Mark. I just translated it to R.
 * There are 3 key functions
+
 2 "build_B_with_data" builds the necessary B matrix
 
 
@@ -255,6 +257,7 @@ build_B_with_data &lt;- function(Cmat, phi, b, S, P) {
 
 * This are taken from the .py code provided by Mark. I just translated it to R.
 * There are 3 key functions
+
 3 "landscape_R0" The max eigen value of K is landscape `\(R_0\)`
 
 
@@ -347,10 +350,6 @@ T. torosa      | Because it is a newt, should be relatively high
 ## Transmission rate (cont'd)
 
 
-```
-## [1] 0.0003973486 0.0012434044 0.0045978433 0.0115978896 0.0124602230
-## [6] 0.0821304511
-```
 
 
 
@@ -856,6 +855,20 @@ T. torosa      | Because it is a newt, should be relatively high
   
 </table>
 </div>
+---
+
+# The Epi model
+## Transmission rate (cont'd)
+### Intraspecific Transmission
+
+&lt;img src="Update011525_files/figure-html/graph intra trans-1.png" width="45%" /&gt;
+---
+
+# The Epi model
+## Transmission rate (cont'd)
+### Interspecific Transmission
+
+&lt;img src="Update011525_files/figure-html/graph inter trans-1.png" width="45%" /&gt;
 ---
 
 # Connectivty of Patches
@@ -2040,17 +2053,108 @@ class: center, middle
 
 # Graphing
 
-.pull-left[
 * First, I wanted to check the relationship between `\(\beta\)` diversity and `\(R_{0L}\)`
-]
 
-![](Update011525_files/figure-html/beta graph-1.png)&lt;!-- --&gt;
+&lt;img src="figs/beta_plot.png" width="75%" /&gt;
 ---
 
 # Graphing
 * Hmm, not what we predicted. I wonder if abundance has an affect
 
-![](Update011525_files/figure-html/abund graph-1.png)&lt;!-- --&gt;
+&lt;img src="figs/abun_R0_plot.png" width="75%" /&gt;
+
+---
+
+# Graphing
+
+* This made me think, "maybe we should correct `\(\beta\)` diversity for abundance"
+
+&lt;img src="figs/beta_relative.png" width="75%" /&gt;
+
+---
+
+# Graphing
+
+* Then I thought, "Maybe we should look at `\(\gamma\)` diversity too!"
+
+&lt;img src="figs/gamma_plot.png" width="75%" /&gt;
+
+---
+
+# Graphing
+
+* Then I wanted to explore species effects
+
+&lt;img src="figs/PREG_plots.png" width="75%" /&gt;
+
+---
+
+# Graphing
+
+* Then I wanted to explore species effects
+
+&lt;img src="figs/ABOR_plots.png" width="75%" /&gt;
+]
+
+---
+
+# Graphing
+
+* Then I wanted to explore species effects
+
+&lt;img src="figs/RCAT_plots.png" width="75%" /&gt;
+]
+
+---
+
+# Graphing
+
+* Then I wanted to explore species effects
+
+&lt;img src="figs/RDRAY_plots.png" width="75%" /&gt;
+
+---
+                  
+# Graphing
+
+* Then I wanted to explore species effects
+
+&lt;img src="figs/TTOR_plots.png" width="75%" /&gt;
+
+---
+                  
+# Graphing
+
+* Then I wanted to explore species effects
+
+&lt;img src="figs/TGRAN_plots.png" width="75%" /&gt;
+
+---
+
+# Next Steps
+
+* Overall, I think this is big progress for this project
+--
+
+* I think there are a couple next steps / things to consider
+--
+
+* Do we want to compare different disease models?
+  - Density dependent?
+  - Environmental pool?
+--
+
+* Do we want to adjust community parameters? 
+  - Probably better to use Mark's info on dispersal (if we can)
+  - Any other adjustments to community parameters you'd like to see?
+--
+
+* Do we want to adjust epi model?
+  - Any errors you may have noticed in what I've done?
+  - Things you're curious to compare?
+--
+
+* Would we like to do some form of analysis? I think this could just be straightforward linear models
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
