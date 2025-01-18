@@ -9,7 +9,7 @@ library(tidyverse)
 library(ggplot2)
 library(RColorBrewer)
 library(patchwork)
-source('Occu_abun_practice.R')
+source('Metacomm_5patch.R')
 set.seed(1234)
 
 main.wd <- getwd()
@@ -283,7 +283,7 @@ for (t in 1:time) {
 # View(pop_data_Freq[[90]])  #example of dataframe at time 90
 
 ### Frequency dependent multiple metacommunities model ###
-source('Occu_abun_practice.R')
+source('Metacomm_5patch.R')
 
 #species characteristics
 Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
@@ -530,7 +530,7 @@ for (a in 1:length(meta_comm_list)) {
                                S = num_spp,
                                P = num_patches)
   
-  result2[a,17] <- eigen(r0_landscape[[1]])$values[1] #landscape R0
+  result2[a,17] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
   result2[a,18] <- a #metacommunity ID
 }
 

@@ -82,6 +82,7 @@ build_B_with_data <- function(Cmat, phi, b, S, P) {
       tZ <- matrix(0,nrow = S, ncol = S)
       new_diag <- array(dim = S)
       new_diag <- if(p == j){
+        #build the diagonal matrix
         (-1)*b[p,] - phi*Cmat_axis[p]
       } else{
         phi*Cmat[j,p]
@@ -125,26 +126,26 @@ landscape_R0 <- function(R0_spps,Cmat,b, beta, phi,S,P){
                          b = b,
                          S = S,
                          P = P)
-  K <- R * solve(-1*B)
+  K <- R %*% solve(-1*B)
   return(list(K = K, R = R, B = B))
 }
 
 # Example of using the 3 functions
-# S <- 6 #number of species
-# P <- 5 #number of patches
+# S <- 2 #number of species
+# P <- 2 #number of patches
 # R0s <- matrix(data = rnorm(n = S*P, mean = 1, sd = 0.1), nrow = P, ncol = S)
 # b <- matrix(data = rnorm(n = S*P, mean = 1, sd = 0.1), nrow = P, ncol = S)
-# phi <- rnorm(n = 6, mean = 0.5, sd = 0.1)
+# phi <- rnorm(n = 2, mean = 0.5, sd = 0.1)
 # #transmission
 # beta <- matrix(data = NA, nrow = S, ncol = S)
 # for (i in 1:nrow(beta)) {
 #   for (j in 1:ncol(beta)) {
-#     beta[i,j] <- ifelse(i == j, rbeta(n = 1, shape1 = 2, shape2 = 10),rbeta(n = 1, shape1 = 1, shape2 = 1)) 
+#     beta[i,j] <- ifelse(i == j, rbeta(n = 1, shape1 = 2, shape2 = 10),rbeta(n = 1, shape1 = 1, shape2 = 1))
 #   }
 # }
 # #connectivity
-# c <- matrix(data = rnorm(n = P^2, mean = 0.5, sd = 0.1),
-#             nrow = P, 
+# Cmat <- matrix(data = rnorm(n = P^2, mean = 0.5, sd = 0.1),
+#             nrow = P,
 #             ncol = P)
 # 
 # 
@@ -153,17 +154,18 @@ landscape_R0 <- function(R0_spps,Cmat,b, beta, phi,S,P){
 #                        beta = beta,
 #                        S = S,
 #                        P = P)
-# B <- build_B_with_data(Cmat = c,
+# B <- build_B_with_data(Cmat = Cmat,
 #                        phi = phi,
 #                        b = b,
 #                        S = S,
-#                        P = P) 
+#                        P = P)
 # K2 <- landscape_R0(R0_spps = R0s,
-#                    Cmat = c,
-#                    b = b, 
-#                    beta = beta, 
+#                    Cmat = Cmat,
+#                    b = b,
+#                    beta = beta,
 #                    phi = phi,
 #                    S = S,
 #                    P = P)
+# max(abs(eigen(K2[[1]])$values))
 # eigen(K2[[1]])$values[1]
 # View(K2[[1]])
