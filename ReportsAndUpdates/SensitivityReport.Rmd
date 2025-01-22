@@ -1,0 +1,171 @@
+---
+title: "Sensitivity Assessment"
+author: "Reed Scott"
+date: "2025-01-22"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(root.dir = "D:/gitrepos/MetaDisease",echo = TRUE)
+
+```
+
+# Introduction
+
+Hi Brittany and Mark!
+
+Per your suggestion last week, I have done some exploratory sensitivity assessments. As a refresher, because we are
+taking educated guesses at the potential values for many of the necessary disease parameters, you both sugggested that 
+I explore how variation in potential parameters values could affect the model output.  Specifically I have looked at 
+how
+
+* connectivity
+* Transmission rate ($\beta$)
+* death rate(d)
+* recovery rate (d) and
+* dispersal rate ($\phi$)
+
+affect the $R_{0L}$ of a 2 patch, 6 species meta-community. I have not done a more formal sensitivity analysis: what I
+report here are just the raw results of 100 simulations where I varied 1 of the 5 parameters of interest. Also, please 
+note that I will be trying to keep displayed code to a minimum, and will try to report generally on my methods for 
+creating these simulations. This is so I don't bog you down and keep the focus on the big picture / so we can explore 
+the general meaning of the "analysis". 
+
+**My main ask of you is this:** 
+
+1. **Please review this document and let me know if there is any other sensitivity analysis you would like to see done, and if so what?**
+2. **Do you feel I have accurately assessed the outcome of these analysis? Do you agree with the effects I suggest?**
+3. **Are there any adjustments you'd like to see to the ranges I've choosen?**
+
+Now, let's get into it!
+
+# Connectivity
+
+In the original analysis I presented last week, I simulated connectivity by creating an Patch * Patch matrix. This 
+followed the key assumption that individuals are more likely to stay in a patch then they are to leave the patch. In
+this simulation we tested 100 metacommunities, and for each metacommunity constructed a different connectivity matrix.
+Generally, this took the shape of:
+
+```
+stay <- rbeta(n = 1, shape1 = 4, shape2 = 2) #probability individuals stay in a patch?
+go <- 1 - stay # probability individuals move
+connect <- matrix(data = NA,
+                  nrow = num_patches, 
+                  ncol = num_patches)
+for(i in 1:ncol(connect)){
+  for(j in 1:nrow(connect)){
+    connect[i,j] <- ifelse(i == j, stay, go)
+  }
+}
+```
+
+I put this construction of the connectivity matrix within the for{} loop for the simulation. After the simulation was 
+complete, I compared connectivity to disease risk by measuring the relationship between probability of leaving a patch 
+(go) and $R_{0L}$. The results are shown in figure 1. Overall, this seems to suggest that connectivity is positively 
+related with $R_{0L}$.
+
+![Figure 1: Relationship between connectivity and $R_{0L}$](D:/gitrepos/MetaDisease/Graphs/connectplot.png)
+
+# Transmission
+
+Next, I tried varying transmission rates for all species to see how that affects $R_{0L}$. As a reminder, we held the
+assumption that more abundant species would have higher transmission rates, and that $\beta_{ss}$ would be higher than
+$\beta_{si}$. For each of the 100 simulated meta-communities in this example, we simulated transmission rates in the 
+following way:
+
+```
+trans_rate <- function(n = 1,l = 0, u, alpha,beta){
+  trans <- rBeta.4P(n = n, l = l, u = u, alpha = alpha, beta = beta)
+  return(trans)
+}
+
+  # PREG
+  intra_PREG <- trans_rate(l = 0, u = 1, alpha = 4,beta = 2)
+  inter_PREG <- trans_rate(l = 0, u = intra_PREG, alpha = 4, beta = 2.5)
+  
+  # TGRAN
+  intra_TGRAN <- trans_rate(l = 0, u = intra_PREG, alpha = 4, beta = 2.25)
+  inter_TGRAN <- trans_rate(l = 0, u = intra_TGRAN, alpha = 4, beta = 2.5)
+  
+  #TTOR
+  intra_TTOR <- trans_rate(l = 0, u = intra_TGRAN, alpha = 4,beta = 2)
+  inter_TTOR <- trans_rate(l = 0, u = intra_TTOR, alpha = 3, beta = 2.75)
+  
+  
+  #ABOR
+  intra_ABOR <- trans_rate(l = 0, u = intra_TTOR, alpha = 4,beta = 2)
+  inter_ABOR <- trans_rate(l = 0, u = intra_ABOR, alpha = 2.5, beta = 3.0)
+  
+  
+  #RCAT
+  intra_RCAT <- trans_rate(l = 0, u = intra_ABOR, alpha = 4,beta = 2)
+  inter_RCAT <- trans_rate(l = 0, u = intra_RCAT, alpha = 2.0, beta = 3.25)
+  
+  #RDRAY
+  intra_RDRAY <- trans_rate(l = 0, u = intra_RCAT, alpha = 4,beta = 2)
+  inter_RDRAY <- trans_rate(l = 0, u = intra_RDRAY, alpha = 1.5, beta = 3.5)
+  
+  
+  
+  
+  
+  beta <- matrix(data = NA, nrow = num_spp, ncol = num_spp)
+  for (i in 1:nrow(beta)) {
+    for (j in 1:ncol(beta)) {
+      beta[i,j] <- if(i == 1 & j == 1){
+        intra_PREG}else if(i != 1 & j == 1){
+          inter_PREG} else if(i == 2 & j == 2){
+            intra_TGRAN} else if(i != 2 & j == 2){
+              inter_TGRAN} else if(i == 3 & j == 3){
+                intra_TTOR} else if(i != 3 & j == 3){
+                  inter_TTOR} else if(i == 4 & j == 4){
+                    intra_ABOR} else if(i != 4 & j == 4){
+                      inter_ABOR} else if(i == 5 & j == 5){
+                        intra_RCAT} else if(i != 5 & j ==5){
+                          inter_RCAT} else if(i == 6 & j == 6){
+                            intra_RDRAY} else if(i != 6 & j == 6){
+                              inter_RDRAY}
+    }
+  }
+  beta <- beta/90
+```
+I used beta/90 to help simulate a 90 day breeding season. Additionally, I used the rBeta.4P() to create truncated beta
+distributions so that the I could not have a $\beta_{si}$ higher than $\beta_{ss}$ and so that each $\beta_{ss}$ would 
+follow our assumptions in regards to rank abundance. This simulation resulted in figure 2. I used $\beta_{ss}$ of
+*P. regilla* would should be the highest transmission rate in each simulation, to test the relationship between
+$\beta$ and $R_{0L}$. Overall, I think this shows a pretty strong positive relationship between $\beta$ and $R_{0L}$.
+
+![Figure 2: Effect of $\beta$ on $R_{0L}$](D:/gitrepos/MetaDisease/Graphs/transplot.png)
+
+# Death rate
+
+In these simulations, death rate is a vector d of 6 possible values. Originally, I had filled in 4 of the 6 species
+based on prior literature and the other 2 were filled in based on their rank abundance and the values of other species.
+Here, however, I created 6 random numbers using runif(6). This means death rates could vary between 0 and 1When I ran 
+this simulation 100 times, and compared $d_{max}$, $d_{min}$, and the range of values $d_{range}$. The results are 
+shown below in figure 3. 
+
+![Figure 3: Effect of d on $R_{0L}$](D:/gitrepos/MetaDisease/Graphs/death_plots.png)
+
+# Recovery rate
+
+Sensitivity testing for recovery rate was similar to how I tested death rate, because recovery rate is also a value
+between 0 and 1 and could be simulated using runif(6). As such, my process was very similar: I conducted 100 
+simulations and tested the compared the effects of $v_{max}$, $v_{min}$, and $v_{range}$. Results of the simulations
+are shown in figure 4. Overall, I think that these results suggest a limited affect of recovery rate on $R_{0L}$.
+
+![Figure 4: Effect of v on $R_{0L}$](D:/gitrepos/MetaDisease/Graphs/recoverygraphs.png)
+
+# Dispersal
+
+Lastly, I wanted to test the effect of dispersal. Similar to d and v, dispersal ($\phi$), is a vector of length S. I
+also envision this as a variable ranging between 0 and 1 so I again used runif(6). Again, I think these results suggest
+limited effect of dispersal on $R_{0L}$.
+
+![Figure 5: Effect of $\phi$ on $R_{0L}$](D:/gitrepos/MetaDisease/Graphs/disperseplots.png)
+
+# Conclusion
+
+**IF** I have done this analysis similar to how you envisioned and **IF** I have interpreted this correctly, I take
+this to mean that connectivity and transmission have relatively strong effects, while death rate, recovery rate, and dispersal rate don't necessarily impact $R_{0P}$.
+
