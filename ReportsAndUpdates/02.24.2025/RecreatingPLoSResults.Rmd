@@ -1,8 +1,39 @@
-#Description-----------------------------------------
-#Attempt to replicate results of 
-#  18 Feb 2025
-#RCS
+---
+title: "Recreating PLoS Results"
+author: "Reed Scott"
+date: "2025-02-24"
+output: html_document
+---
 
+Hello Brittany and Mark!
+
+One of the suggestions I got from our previous meeting was to try to recreate the results of Mihaljevic et al (2014). I have done
+so, and wanted to report on my findings. I re-created density depedent and frequency dependent models as well as additive and
+saturated models. This means that there are 4 possible scenarios I'll be outlining in this report:
+
+1. **Density** dependent disease transmission with an **additive** relationship between abundance and species richness.
+2. **Density** dependent disease transmission with a **saturated** relationship between abundance and species richness.
+3. **Frequency** dependent disease transmission with an **additive** relationship between abundance and species richness.
+4. **Frequency** dependent disease transmission with a **saturated** relationship between abundance and species richness.
+
+I will report on each of these scenarios and how I simulated them. I will also include some concluding remarks on how I think
+this impacts our simulation and how I want to adjust what I've done for our project. I have included at the end my key take aways.
+
+# Paramaters
+
+Many of the parameters used here have already been used previously. I won't discuss how I decided on their values, as that has already been discussed
+in other documents. But I did want to recap what parameters are used here.
+
+- num_spp = the number of species
+- K = rank abundance of each species
+- n_iter = how many simulations we'll do (I set this at 1000)
+- $\psi$ = occupancy
+- b = birth rate. All 0 here.
+- d = death rate.
+- v = recovery rate
+- $\beta$ = transmission coefficient
+
+```{r init, echo = FALSE, message = FALSE,results='hide'}
 #Initialize -----------------------------------------
 library(readxl)
 library(dplyr)
@@ -125,13 +156,27 @@ for (i in 1:nrow(beta)) {
   }
 }
 beta <- beta/90
+```
+
+# Reference Graph
+
+For this report, I will frequently reference Figure 1 (below). This is an image taken from Mihaljevic (2014) that I think nicely encapsulates what they
+did. My goal is to create simulations that match the results shown in this figure. As such, I will be comparing the plots that result from my simulations
+to panels in this figure.
+
+![Figure 1: Results from Mihaljevic 2014](D:/gitrepos/MetaDisease/ReportsAndUpdates/02.24.2025/pone.png)
 
 
-### Running simulations
-###############################
-# Freq models
-###############################
 
+
+# **Density** dependent disease transmission with an **additive** relationship between abundance and species richness.
+
+Okay, so we're going to start by simulating an additive relationship between abundance and richness. This is relatively simple: *if* a species is present
+then it is present at it's rank abundance level. Then, once we've determined what species are present, we can use Mihaljevic's calculation of a "G matrix"
+and get the max Eigen value of that matrix to determine $R_{0P}$. We can then plot $R_{0P} - Richness$. If we compare this to Fig 1A, it looks like a pretty good match!
+
+
+```{r Den Additive spp abundance sim}
 ### Density dependent, additive models #
 comms_additive <- vector("list", length = n_iter)
 for(c in 1:length(comms_additive)){
@@ -141,7 +186,6 @@ for(c in 1:length(comms_additive)){
   }
   comms_additive[[c]] <- N
 }
-
 
 den_dep_add_r0 <- vector("list", length = length(comms_additive))
 # density dependent model
@@ -165,16 +209,27 @@ den_dep_add_df$abund <- rowSums(den_dep_add_df[,1:6])
 names(den_dep_add_df)[1:7] <- c("Spp1","Spp2","Spp3","Spp4","Spp5","Spp6","R0")
 den_dep_add_Plot <- ggplot(data = den_dep_add_df,mapping = aes(x = alpha, y = R0))+
   geom_point()+
-  geom_smooth(method = "lm")
+  geom_smooth(method = "lm")+
+  ggtitle("Figure 2")
 den_dep_add_Plot
-# Okay so this is a density dependent additive model
-# It makes sense that in this case we see R0 go up with amplification
+```
 
+# **Density** dependent disease transmission with a **saturated** relationship between abundance and species richness.
 
+The next step is to use a density dependent system but with a saturated relationship between abundance and species richness. this is, admittedly, a
+bit more difficult to calculate. I used the equation taken from the supplementals of Mihaljevic et al. This equation looks like:
 
+$$
+K_{comm} = \frac{65}{1+50*e^{-0.05R}}
+$$
 
-#Next step: Density dependent saturated model
-sum(K)
+Where $K_{comm}$ is the saturating function for richness and abundance, R is the number of species, 65 represents the max abundance (choosen somewhat 
+arbitrarily) and the rest are constants I've played around with a bit. Notice that I also had to create a initial relationship between the number of species and the overall abundance. This is because, in order to make it a saturated model, I made it such that if abundance < $K_{comm}$ then any species present would be present in their max abundance, while if abundance >= $K_{comm}$ abundance were adjusted based on the variable $K_S$ which is equal to $K_{comm}/K_T$. More info on all of this can be found in the supplementals of Mihaljevic et al. All of this said, if you look at Fig 3 it decently matches Fig 1C.
+
+*Please note: I have found that the exact shape of the saturated richness - abundance curve is highly sensitive to the constants used in calculating*
+*$K_{comm}$. If we go this route for simulating abundance (and I personally think we should), we will have to choose constants carefully*
+
+```{r Den Saturated spp abundance sim, message=FALSE}
 max_abund <- 65
 
 species_richness <- as.numeric(sample(1:6, size = n_iter, replace = T))
@@ -182,9 +237,9 @@ species_richness <- as.numeric(sample(1:6, size = n_iter, replace = T))
 #need to create a relationship between species richness and abundance
 a <- 6
 b <- 4
-error <- rnorm(length(species_richness), mean = 0, sd = 0.1)
+error <- rnorm(length(species_richness), mean = 0, sd = 1)
 abundance <- a*log(b*species_richness)+error
-plot(species_richness,abundance)
+#plot(species_richness,abundance)
 
 rich_abund <- data.frame(richness = species_richness, abundance = abundance)
 comms_saturated <- vector("list", length = n_iter)
@@ -201,15 +256,15 @@ for(c in 1:length(comms_saturated)){
 }
 
 #Okay, so let's unlist these and then create a df from them        
-comms_sat_df <- data.frame(matrix(unlist(comms_saturated), nrow = length(comms_saturated), ncol = num_spp, byrow = T))
-comms_sat_df$abund <- rowSums(comms_sat_df)    
-comms_sat_df$rich <- rich_abund$richness
-comms_sat_df$KCOM <- unlist(KCOM_list)
-plot(comms_sat_df$rich, comms_sat_df$abund)
-comms_sat_plot <- ggplot(data = comms_sat_df, mapping = aes(x = rich, y = abund))+
-  geom_point(position = position_dodge(width = 0.9))+
-  geom_smooth()
-comms_sat_plot
+# comms_sat_df <- data.frame(matrix(unlist(comms_saturated), nrow = length(comms_saturated), ncol = num_spp, byrow = T))
+# comms_sat_df$abund <- rowSums(comms_sat_df)    
+# comms_sat_df$rich <- rich_abund$richness
+# comms_sat_df$KCOM <- unlist(KCOM_list)
+# plot(comms_sat_df$rich, comms_sat_df$abund)
+# comms_sat_plot <- ggplot(data = comms_sat_df, mapping = aes(x = rich, y = abund))+
+#   geom_point(position = position_dodge(width = 0.9))+
+#   geom_smooth()+
+# comms_sat_plot
 
 
 
@@ -236,37 +291,41 @@ den_dep_sat_df$abund <- rowSums(den_dep_sat_df[,1:6])
 names(den_dep_sat_df)[1:7] <- c("Spp1","Spp2","Spp3","Spp4","Spp5","Spp6","R0")
 den_dep_sat_Plot <- ggplot(data = den_dep_sat_df,mapping = aes(x = alpha, y = R0))+
   geom_point()+
-  geom_smooth(method = "loess")
+  geom_smooth(method = "loess")+
+  ggtitle("Figure 3")
 den_dep_sat_Plot
+```
 
+# **Frequency** dependent disease transmission with an **additive** relationship between abundance and species richness.
 
+So, when we model a frequency dependent system there are a few changes in how we construct the G matrix and thus how we calculate $R_{0P}$. The key
+difference is in parameter p. I didn't talk about it before but p changes depending on whether or not disease tranmission is density dependent or
+frequency dependent. In a density dependent system, p is simply equal to the total abundance of infecting species (N[j] in our case). However, in a
+frequency dependent system, p is equal to *relative* abundance of the infecting species or $p = N_j/(\sum_{i}^{numspp}N)$. In coding practice, this takes
+the following form:
 
+```
+for(c in 1:length(comms_freq_saturated)){
+  N <- comms_freq_saturated[[c]]
+  p <- N
+  G <- matrix(NA, nrow = num_spp, ncol = num_spp)
+  for(i in 1:num_spp){
+    for (j in 1:num_spp) {
+      trans <- if(sum(p) > 0){
+        p[j]/sum(p)} else{0}=
+      G[i,j] <- (beta[i,j]*trans)/(v[j]+d[j])
+    }
+  }
+  R0 <- eigen(G)$values[1]
+  freq_dep_sat_r0[[c]] <- if(R0 > 0){
+    R0} else{NA}
+}
+```
 
+And when we combine the frequency dependent disease model with an additive species - abundance relationship we get the Figure 4. I think this matches well
+with Figure 1E and shows a dilution effect.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# I think I have successfully done it! This again shows an amplification affect when using a saturated model for a density dependent system.
-#This roughly matches Figure B(panel D) in the supplementals
-
-###############################
-# Freq models
-###############################
-
+```{r Freq dep add mod, echo = FALSE, message = FALSE, warning=FALSE}
 ### Freq dependent, additive models #
 comms_freq_additive <- vector("list", length = n_iter)
 for(c in 1:length(comms_freq_additive)){
@@ -302,20 +361,24 @@ freq_dep_add_df$alpha <- rowSums(freq_dep_add_df[,1:6] > 0)
 freq_dep_add_df$abund <- rowSums(freq_dep_add_df[,1:6])
 names(freq_dep_add_df)[1:7] <- c("Spp1","Spp2","Spp3","Spp4","Spp5","Spp6","R0")
 
-abund_plot <- ggplot(data = freq_dep_add_df, mapping = aes(x = alpha, y = abund))+
-  geom_point()+
-  geom_smooth(method = "lm")
-abund_plot
+# abund_plot <- ggplot(data = freq_dep_add_df, mapping = aes(x = alpha, y = abund))+
+#   geom_point()+
+#   geom_smooth(method = "lm")
+# abund_plot
 
 freq_dep_add_Plot <- ggplot(data = freq_dep_add_df,mapping = aes(x = alpha, y = R0))+
   geom_point()+
-  geom_smooth(method = "loess")
+  geom_smooth(method = "loess")+
+  ggtitle("Figure 4")
 freq_dep_add_Plot
+```
 
-### Freq dep saturated models###
+# **Frequency** dependent disease transmission with a **saturated** relationship between abundance and species richness.
 
+Lastly we have frequency dependent transmission with a saturated richness - abundance relationship. Everything about this has already been explained in previous parts (how to make a frequency dependent model, how to create a saturated model) so I won't rehash it here. The results are shown in Figure 5, which shows a more exaggerated dilution effect but I believe match the same trend as Figure 1F.
+
+```{r Freq dep Sat model, echo = FALSE, message = FALSE}
 #Next step: freq dependent saturated model
-sum(K)
 max_abund <- 65
 
 species_richness <- as.numeric(sample(1:6, size = n_iter, replace = T))
@@ -325,14 +388,13 @@ a <- 10
 b <- 4
 error <- rnorm(length(species_richness), mean = 0, sd = 1)
 abundance <- a*log(b*species_richness)+error
-plot(species_richness,abundance)
 
 rich_abund <- data.frame(richness = species_richness, abundance = abundance)
 comms_freq_saturated <- vector("list", length = n_iter)
 KCOM_list <- vector("list", length = n_iter)
 for(c in 1:length(comms_saturated)){
   R <- rich_abund[c,1]
-  KCOM <- max_abund/(1+50*exp(-0.05*(R)))
+  KCOM <- max_abund/(1+6*exp(-0.15*(R+10)))
   KS <- KCOM/rich_abund[c,2]
   comms_freq_saturated[[c]] <- if(rich_abund[c,2] >= KCOM){
     c(K[1:rich_abund[c,1]]*KS,rep(0, num_spp - rich_abund[c,1]))} else{
@@ -342,16 +404,16 @@ for(c in 1:length(comms_saturated)){
 }
 
 #Okay, so let's unlist these and then create a df from them        
-comms_freq_sat_df <- data.frame(matrix(unlist(comms_freq_saturated), nrow = length(comms_freq_saturated), 
-                                       ncol = num_spp, byrow = T))
-comms_freq_sat_df$abund <- rowSums(comms_freq_sat_df)    
-comms_freq_sat_df$rich <- rich_abund$richness
-comms_freq_sat_df$KCOM <- unlist(KCOM_list)
-plot(comms_freq_sat_df$rich, comms_freq_sat_df$abund)
-comms_freq_sat_plot <- ggplot(data = comms_freq_sat_df, mapping = aes(x = rich, y = abund))+
-  geom_point(position = position_dodge(width = 0.9))+
-  geom_smooth()
-comms_freq_sat_plot
+# comms_freq_sat_df <- data.frame(matrix(unlist(comms_freq_saturated), nrow = length(comms_freq_saturated), 
+#                                        ncol = num_spp, byrow = T))
+# comms_freq_sat_df$abund <- rowSums(comms_freq_sat_df)    
+# comms_freq_sat_df$rich <- rich_abund$richness
+# comms_freq_sat_df$KCOM <- unlist(KCOM_list)
+# plot(comms_freq_sat_df$rich, comms_freq_sat_df$abund)
+# comms_freq_sat_plot <- ggplot(data = comms_freq_sat_df, mapping = aes(x = rich, y = abund))+
+#   geom_point(position = position_dodge(width = 0.9))+
+#   geom_smooth()
+# comms_freq_sat_plot
 
 
 
@@ -383,7 +445,14 @@ freq_dep_sat_df$abund <- rowSums(freq_dep_sat_df[,1:6])
 names(freq_dep_sat_df)[1:7] <- c("Spp1","Spp2","Spp3","Spp4","Spp5","Spp6","R0")
 freq_dep_sat_Plot <- ggplot(data = freq_dep_sat_df,mapping = aes(x = alpha, y = R0))+
   geom_point(alpha = 0.6)+
-  geom_smooth(method = "loess")
+  geom_smooth(method = "loess")+
+  ggtitle("Figure 5")
 freq_dep_sat_Plot
+```
 
+# Conclusion
 
+I have come away from this exercise with a much better understanding of the potential ways of forming a community. I can also see how this directly
+applies to our project. I'm thankful you both recommended I go through and do this. **My key take away from this: I think we should build our**
+**metacommunity disease model using a frequency dependent disease system and a saturated relationship between richness and abundance.** Now that I have
+this practice I think this should be pretty straightforward to adapt to our system. 

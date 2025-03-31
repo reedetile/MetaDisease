@@ -21,7 +21,8 @@ S <- c(0.83, #PREG
 S[4] <- runif(n = 1, min = S[5], max = S[3])
 #an array of probability values for the occurence of each spp
 #what if I over thought this, and I can just assign an occupancy probability?
-K <- c(10,6,5,4,3,2) #this is just an example, but k is the abundance at each rank (i think?)
+K <- c(20,16,15,7,4,2) #this is just an example, but k is the abundance at each rank (i think?)
+max_abund <- 65 # a somewhat arbitrarily decided upon max abundance
 #this could later become some sort of rnorm(). EX rnorm(n = 1, mean = 10, sd = 1). This provides a starting abdunance for each spp if present
 
 ### Creating a meta-community###
@@ -83,7 +84,7 @@ K <- c(10,6,5,4,3,2) #this is just an example, but k is the abundance at each ra
 # }
 
 # I THINK this is a better way to determine abundance
-N <- 100 #number of metacommunity simulations to run
+N <- 1000 #number of metacommunity simulations to run
 meta_comm_list <- vector("list",N)
 beta_list <- vector("list", N)
 nestedness_list <- vector("list", N)
@@ -131,6 +132,78 @@ for(n in 1:N){
 # meta_comm_list[[2]]
 # beta_diversity <- betadiver(meta_comm1[,1:6], method = 'w')
 #plot(beta_diversity)
+
+# 03/31/2025: changing from an additive model to a saturatured model
+N <- 1000 #number of metacommunity simulations to run
+meta_comm_list <- vector("list",N)
+beta_list <- vector("list", N)
+nestedness_list <- vector("list", N)
+
+for(n in 1:N){
+  meta_comm <- vector("list", length = num_patches)
+                      #data.frame(matrix(NA, nrow = num_patches, ncol = num_spp)) #create metacom
+  for(c in 1:num_patches){
+    alpha <- as.numeric(sample(1:6, size = 1, replace = T))
+    #need to create a relationship between species richness and abundance
+    a <- 10
+    b <- 4
+    error <- rnorm(length(alpha), mean = 0, sd = 1)
+    abundance <- a*log(b*alpha)+error
+    R <- alpha
+    KCOM <- max_abund/(1+3*exp(-0.05*(R)))
+    KS <- KCOM/abundance
+    meta_comm[[c]] <- if(abundance >= KCOM){
+      c(K[1:alpha]*KS,rep(0, num_spp - alpha))} else{
+        c(K[1:alpha],rep(0, num_spp - alpha))
+      }
+  }
+  meta_comm_list[[n]] <- meta_comm
+}
+# okay so I've made my 2 patch metacomms. Now I want to show that this still follows a saturated model
+matrix(data = unlist(meta_comm_list[[1]]), nrow = num_patches, ncol = num_spp, byrow = T)
+alpha_df <- data.frame(matrix(unlist(meta_comm_list), nrow = num_patches*N, ncol = num_spp, byrow = T))
+alpha_df$abund <- rowSums(alpha_df[1:6])
+max(alpha_df$abund)
+alpha_df$richness <- rowSums(alpha_df[1:6] > 0)
+plot(alpha_df$richness, alpha_df$abund) # alpha diversity is a saturated curve!
+alpha_sat_plot <- ggplot(data = alpha_df, aes(x = richness, y = abund))+
+  geom_point()+ 
+  xlab("Species Richness")+
+  ylab("Species Abundance")+
+  ggtitle("Alpha diversity relationship with abundance")+
+  theme_classic()
+alpha_sat_plot
+
+
+gamma_df <- data.frame(richness = rep(NA, length = N), abund = rep(NA, length = N))
+for(n in 1:N){
+  meta_comm <- data.frame(matrix(unlist(meta_comm_list[[n]]), nrow = num_patches, ncol = num_spp, byrow=T))
+  gamma_df[n,2] <- sum(colSums(meta_comm))
+  gamma_df[n,1]<- sum(colSums(meta_comm) > 0)
+}
+plot(gamma_df$richness, gamma_df$abund)
+gamma_sat_plot <- ggplot(data = gamma_df, aes(x = richness, y = abund))+
+  geom_point()+ 
+  xlab("Species Richness")+
+  ylab("Species Abundance")+
+  ggtitle("Gamma diversity relationship with abundance")+
+  theme_classic()
+gamma_sat_plot
+# this is also a saturated curve!
+
+# Next step: I need to show how communities change, or stay the same over time
+T <- 90 #assume a 90 day breeding season
+phi <- runif(6)# Need to establish dispersal metric. May need to determine more realistic values (see notes
+# from meeting with mark + brittany on 03/28/25)
+for(c in 1:length(meta_comm_list){
+  meta_comm <- meta_comm_list[[c]]
+  meta_comm_df <- data.frame(matrix(unlist(meta_comm), nrow = num_patches, ncol = num_spp, byrow = T))
+  for(t in 1:T) {
+    
+    for (i in 1:num_patches) {
+      for (j in 1:num_patches) {
+        delta
+
 
 
 ### Below is use of Preston's law. Not sure we'll actually be doing this, so I have commented it out for
