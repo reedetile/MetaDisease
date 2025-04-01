@@ -5,6 +5,7 @@
 
 # Load packages---------------------------------
 library(vegan)
+library(ggplot2)
 # Parameters-------------------------------------
 #setting up meta-community parameters
 set.seed(1234)
@@ -84,7 +85,7 @@ max_abund <- 65 # a somewhat arbitrarily decided upon max abundance
 # }
 
 # I THINK this is a better way to determine abundance
-N <- 1000 #number of metacommunity simulations to run
+N <- 10 #number of metacommunity simulations to run
 meta_comm_list <- vector("list",N)
 beta_list <- vector("list", N)
 nestedness_list <- vector("list", N)
@@ -134,7 +135,7 @@ for(n in 1:N){
 #plot(beta_diversity)
 
 # 03/31/2025: changing from an additive model to a saturatured model
-N <- 1000 #number of metacommunity simulations to run
+N <- 10 #number of metacommunity simulations to run
 meta_comm_list <- vector("list",N)
 beta_list <- vector("list", N)
 nestedness_list <- vector("list", N)
@@ -195,14 +196,28 @@ gamma_sat_plot
 T <- 90 #assume a 90 day breeding season
 phi <- runif(6)# Need to establish dispersal metric. May need to determine more realistic values (see notes
 # from meeting with mark + brittany on 03/28/25)
-for(c in 1:length(meta_comm_list){
+meta_comm_change <- data.frame(meta_com = 1:length(meta_comm_list), time = NA)
+for(c in 1:nrow(meta_comm_change)){
   meta_comm <- meta_comm_list[[c]]
   meta_comm_df <- data.frame(matrix(unlist(meta_comm), nrow = num_patches, ncol = num_spp, byrow = T))
   for(t in 1:T) {
-    
+    deltaP <- data.frame(matrix(data = NA, nrow = num_patches, ncol = num_spp))
     for (i in 1:num_patches) {
-      for (j in 1:num_patches) {
-        delta
+      for(j in 1:num_spp) {
+        other_patch <- as.numeric(meta_comm_df[-i,])
+        deltaP[i,j] <- phi[[j]]*other_patch[[j]] - phi[[j]]*meta_comm_df[i,j]
+      }
+    }
+    new_abund <- meta_comm_df + deltaP
+    change <- abs(meta_comm_df - new_abund)
+    meta_comm_change[c,2] <- if(sum(change, na.rm = T) < (0.5*num_spp*num_patches)){
+      t} else{
+        next}
+    #looking to see when this rounds to 1
+  }
+}
+
+  
 
 
 
