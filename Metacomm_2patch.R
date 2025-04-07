@@ -229,6 +229,7 @@ for(c in 1:nrow(meta_comm_change)){
 meta_comm <- data.frame(matrix(unlist(meta_comm_list[[1]]), nrow = num_patches, ncol = num_spp, byrow = T))
 timeXchange <- vector("list", length = Time)
 timeXchange[[1]] <- meta_comm
+deltaP_list  <- vector("list", length = Time-1)
 
 for(t in 2:Time){
   meta_comm <- timeXchange[[t-1]]
@@ -241,6 +242,7 @@ for(t in 2:Time){
   }
   meta_comm <- meta_comm + deltaP
   timeXchange[[t]] <- meta_comm
+  deltaP_list[[t-1]] <- sum(abs(deltaP))
 }
 
 # add in time covariate
@@ -250,6 +252,8 @@ for (t in 1:Time) {
 
 
 timeXchange_df <- do.call(rbind, timeXchange)
+
+deltaP_df <- data.frame(deltaP = unlist(deltaP_list), Time = 2:90) 
 
 timeXchange_df$Patch <- rep(1:2, times = 90)
 colnames(timeXchange_df) <- c("Spp1","Spp2","Spp3","Spp4","Spp5","Spp6","Time","Patch")
@@ -261,8 +265,17 @@ timeXchange_plot <- ggplot(data = timeXchange_df,
   geom_line()+
   theme_classic()
 timeXchange_plot
+
+deltaP_plot <- ggplot(data = deltaP_df, mapping = aes(x = Time, y = deltaP))+
+  geom_point()+
+  geom_line()+
+  theme_classic()
+deltaP_plot
+
+
 setwd(graphs)
 ggsave(filename = "equil_plot.png", plot = timeXchange_plot)
+ggsave(filename = "deltaP_plot.png", plot = deltaP_plot)
 
 
 ### Below is use of Preston's law. Not sure we'll actually be doing this, so I have commented it out for
