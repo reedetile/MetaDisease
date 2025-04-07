@@ -6,11 +6,17 @@
 # Load packages---------------------------------
 library(vegan)
 library(ggplot2)
+library(tidyr)
+
+#setup -------------------------------------------
+repo <- "D:/gitrepos/MetaDisease"
+graphs <- paste(repo,"/Graphs",sep="")
 # Parameters-------------------------------------
 #setting up meta-community parameters
 set.seed(1234)
 num_patches <- 2 #number of patches in metacommunity
 num_spp <- 6 #number of POSSIBLE spp in metacommunity
+N <- 100 #number of metacommunity simulations to run
 
 meta_comm1 <- data.frame(matrix(NA, nrow = num_patches, ncol = num_spp))
 S <- c(0.83, #PREG
@@ -85,7 +91,7 @@ max_abund <- 65 # a somewhat arbitrarily decided upon max abundance
 # }
 
 # I THINK this is a better way to determine abundance
-N <- 10 #number of metacommunity simulations to run
+
 meta_comm_list <- vector("list",N)
 beta_list <- vector("list", N)
 nestedness_list <- vector("list", N)
@@ -135,7 +141,6 @@ for(n in 1:N){
 #plot(beta_diversity)
 
 # 03/31/2025: changing from an additive model to a saturatured model
-N <- 10 #number of metacommunity simulations to run
 meta_comm_list <- vector("list",N)
 beta_list <- vector("list", N)
 nestedness_list <- vector("list", N)
@@ -160,6 +165,7 @@ for(n in 1:N){
   }
   meta_comm_list[[n]] <- meta_comm
 }
+
 # okay so I've made my 2 patch metacomms. Now I want to show that this still follows a saturated model
 matrix(data = unlist(meta_comm_list[[1]]), nrow = num_patches, ncol = num_spp, byrow = T)
 alpha_df <- data.frame(matrix(unlist(meta_comm_list), nrow = num_patches*N, ncol = num_spp, byrow = T))
@@ -193,14 +199,14 @@ gamma_sat_plot
 # this is also a saturated curve!
 
 # Next step: I need to show how communities change, or stay the same over time
-T <- 90 #assume a 90 day breeding season
+Time <- 90 #assume a 90 day breeding season
 phi <- runif(6)# Need to establish dispersal metric. May need to determine more realistic values (see notes
 # from meeting with mark + brittany on 03/28/25)
 meta_comm_change <- data.frame(meta_com = 1:length(meta_comm_list), time = NA)
 for(c in 1:nrow(meta_comm_change)){
   meta_comm <- meta_comm_list[[c]]
   meta_comm_df <- data.frame(matrix(unlist(meta_comm), nrow = num_patches, ncol = num_spp, byrow = T))
-  for(t in 1:T) {
+  for(t in 1:Time) {
     deltaP <- data.frame(matrix(data = NA, nrow = num_patches, ncol = num_spp))
     for (i in 1:num_patches) {
       for(j in 1:num_spp) {
@@ -208,17 +214,55 @@ for(c in 1:nrow(meta_comm_change)){
         deltaP[i,j] <- phi[[j]]*other_patch[[j]] - phi[[j]]*meta_comm_df[i,j]
       }
     }
-    new_abund <- meta_comm_df + deltaP
-    change <- abs(meta_comm_df - new_abund)
-    meta_comm_change[c,2] <- if(sum(change, na.rm = T) < (0.5*num_spp*num_patches)){
+    meta_comm_change[c,2] <- if(sum(abs(deltaP)) > 0.01){ 
+      #if deltaP is > 0 then the system is not yet at equil.
       t} else{
         next}
-    #looking to see when this rounds to 1
+    new_abund <- meta_comm_df + deltaP
+    meta_comm_df <- new_abund
   }
 }
 
   
+# let's plot meta comm 1 as an example to show B + M
+# setup initial conditions
+meta_comm <- data.frame(matrix(unlist(meta_comm_list[[1]]), nrow = num_patches, ncol = num_spp, byrow = T))
+timeXchange <- vector("list", length = Time)
+timeXchange[[1]] <- meta_comm
 
+for(t in 2:Time){
+  meta_comm <- timeXchange[[t-1]]
+  deltaP <- data.frame(matrix(data = NA, nrow = num_patches, ncol = num_spp))
+  for (i in 1:num_patches) {
+    for(j in 1:num_spp) {
+      other_patch <- as.numeric(meta_comm[-i,])
+      deltaP[i,j] <- phi[[j]]*other_patch[[j]] - phi[[j]]*meta_comm[i,j]
+    }
+  }
+  meta_comm <- meta_comm + deltaP
+  timeXchange[[t]] <- meta_comm
+}
+
+# add in time covariate
+for (t in 1:Time) {
+  timeXchange[[t]]$Time <- rep(t,2)
+}
+
+
+timeXchange_df <- do.call(rbind, timeXchange)
+
+timeXchange_df$Patch <- rep(1:2, times = 90)
+colnames(timeXchange_df) <- c("Spp1","Spp2","Spp3","Spp4","Spp5","Spp6","Time","Patch")
+timeXchange_df <- timeXchange_df %>% pivot_longer(cols = Spp1:Spp6, names_to = "Species")
+
+timeXchange_plot <- ggplot(data = timeXchange_df, 
+                           mapping = aes(x = Time, y =  value, shape = as.factor(Patch), colour = Species))+
+  geom_point()+
+  geom_line()+
+  theme_classic()
+timeXchange_plot
+setwd(graphs)
+ggsave(filename = "equil_plot.png", plot = timeXchange_plot)
 
 
 ### Below is use of Preston's law. Not sure we'll actually be doing this, so I have commented it out for
