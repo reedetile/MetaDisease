@@ -1,0 +1,23 @@
+---
+title: "A frequency dependent calculation of R0 for a single species, single patch, in a multispecies, multipatch system"
+author: "Reed"
+format: docx
+editor: visual
+---
+
+Hi Mark!
+
+I have been working for on implementing your calculation of landscape $R_0$ and I think I'm *very* close. However, I've hit a bit of a wall and could use your help. In order to calculate landscape $R_0$ I need to calculate the value of $R_0$ for each species at each patch, $R_{0SP}$ . So, I within the simulation I've been working on I need a P\*S matrix of values for $R_{0SP}$ .
+
+In your 2020 paper (supplements) you calculate $R_{0SP}$ in a multi-species, multi-patch system that uses environmental zoospores as:
+
+$$
+R_{0SP} = \frac{1 + \frac{\phi_s}{b_{SP}} * 
+\sum_{j=1}^{numpatches} (c_{jp}-c_{pj} * \frac{A_j}{A_p} * \frac{\Pi_{sj}^*}{\Pi_{sp}^*} * \frac{N_{sj}^*}{N_{sp}^*})}{1}
+$$
+
+$$
+R_{0SP} = \frac{1 + \frac{\phi_s}{b_{SP}} * 
+\sum_{j=1}^{numpatches} =(c_{jp}-c_{pj} * \frac{A_j}{A_p} * \frac{\Pi_{sj}^*}{\Pi_{sp}^*} * \frac{N_{sj}^*}{N_{sp}^*})}
+{(1-\Pi_{SP}^*)(\sum_{i=1}^{numspp}(\frac{\lambda_{ip}}{\lambda_{SP}}*\frac{\Pi_{ip}^*}{\Pi_{sp}^*}*\frac{N_{ip}^*}{N_{sp}^*} 
+$$
