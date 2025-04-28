@@ -20,7 +20,9 @@ main.wd <- "D:/gitrepos/MetaDisease"
 graphs <- paste(getwd(),"/Graphs",sep = "")
 setwd(main.wd)
 source('Epimodel_funcs.R')
-source('Metacomm_2patch.R')
+meta_comm_list <- readRDS("metacomm_2Patch.RDS")
+num_spp <- 6
+num_patches <- 2
 #species characteristics
 Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
 # PREG = Pseudacris Regilla (Pacific tree frog)
@@ -242,8 +244,9 @@ main.wd <- "D:/gitrepos/MetaDisease"
 graphs <- paste(main.wd,"/Graphs",sep = "")
 setwd(main.wd)
 source('Epimodel_funcs.R')
-source('Metacomm_2patch.R')
-#species characteristics
+meta_comm_list <- readRDS("metacomm_2Patch.RDS")
+num_spp <- 6
+num_patches <- 2#species characteristics
 Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
 # PREG = Pseudacris Regilla (Pacific tree frog)
 # ABOR = Anaxyrus boreas (western toad)
@@ -443,8 +446,9 @@ main.wd <- "D:/gitrepos/MetaDisease"
 graphs <- paste(main.wd,"/Graphs",sep = "")
 setwd(main.wd)
 source('Epimodel_funcs.R')
-source('Metacomm_2patch.R')
-
+meta_comm_list <- readRDS("metacomm_2Patch.RDS")
+num_spp <- 6
+num_patches <- 2#species characteristics
 #species characteristics
 Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
 # PREG = Pseudacris Regilla (Pacific tree frog)

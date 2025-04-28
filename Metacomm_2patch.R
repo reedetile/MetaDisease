@@ -7,6 +7,7 @@
 library(vegan)
 library(ggplot2)
 library(tidyr)
+library(patchwork)
 
 #setup -------------------------------------------
 repo <- "D:/gitrepos/MetaDisease"
@@ -177,7 +178,7 @@ alpha_sat_plot <- ggplot(data = alpha_df, aes(x = richness, y = abund))+
   geom_point()+ 
   xlab("Species Richness")+
   ylab("Species Abundance")+
-  ggtitle("Alpha diversity relationship with abundance")+
+#  ggtitle("Alpha diversity relationship with abundance")+
   theme_classic()
 alpha_sat_plot
 
@@ -193,9 +194,22 @@ gamma_sat_plot <- ggplot(data = gamma_df, aes(x = richness, y = abund))+
   geom_point()+ 
   xlab("Species Richness")+
   ylab("Species Abundance")+
-  ggtitle("Gamma diversity relationship with abundance")+
+#  ggtitle("Gamma diversity relationship with abundance")+
   theme_classic()
 gamma_sat_plot
+# let's save these
+sat_plots <- alpha_sat_plot / gamma_sat_plot + plot_annotation(tag_levels = "A")
+setwd(graphs)
+ggsave(filename = 'sat_plots.png', plot = sat_plots)
+
+# save meta comm list
+setwd(repo)
+meta_comm_list <- meta_comm_list %>% lapply(unlist) %>% lapply(matrix,nrow = num_patches, ncol = num_spp, byrow = T) %>% lapply(data.frame)
+
+
+saveRDS(meta_comm_list, "metacomm_2Patch.RDS")
+
+
 # this is also a saturated curve!
 
 # Next step: I need to show how communities change, or stay the same over time
