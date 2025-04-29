@@ -1,6 +1,6 @@
 #Description-----------------------------------------
-#description of script
-#  25 Apr 2025
+# 
+#  29 Apr 2025
 #RCS
 
 #Initialize -----------------------------------------
@@ -17,8 +17,8 @@ graphs <- paste(getwd(),"/Graphs",sep = "")
 source('Epimodel_funcs.R')
 
 # Global variables----------------------------------
-meta_comm_list <- readRDS("metacomm_2Patch.RDS")
-num_patches <- 2
+meta_comm_list <- readRDS("metacomm_5Patch.RDS")
+num_patches <- 5
 num_spp <- 6
 time <- 90 #how many "days" do I want in the season
 
@@ -187,9 +187,9 @@ for(i in 1:ncol(c)){
 
 result <- data.frame(matrix(data = NA, nrow = length(meta_comm_list), ncol = 18))
 colnames(result) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY",
-                       "PREG_rel","TGRAN_rel","TTOR_rel","ABOR_rel","RCAT_rel","RDRAY_rel",
-                       "BetaDiversity","Gamma_diversity",
-                       "Beta_relative","LandscapeR0", "MetaCommID")
+                      "PREG_rel","TGRAN_rel","TTOR_rel","ABOR_rel","RCAT_rel","RDRAY_rel",
+                      "BetaDiversity","Gamma_diversity",
+                      "Beta_relative","LandscapeR0", "MetaCommID")
 
 for (a in 1:length(meta_comm_list)) {
   S <- meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99) #value of susceptibles
@@ -289,40 +289,17 @@ for (a in 1:length(meta_comm_list)) {
   result[a,18] <- a #metacommunity ID
 }
 
-
-# plot beta X R0
 ggplot(data = result, mapping = aes(x = BetaDiversity, y = LandscapeR0))+
   geom_point()+
-  geom_smooth()+
+  geom_smooth(method = "lm")+
   theme_classic()
+
 ggplot(data = result, mapping = aes(x = Gamma_diversity, y = LandscapeR0))+
   geom_point()+
-  geom_smooth()+
+  geom_smooth(method = "lm")+
   theme_classic()
+
 ggplot(data = result, mapping = aes(x = TotalAbundance, y = LandscapeR0))+
   geom_point()+
-  geom_smooth()+
+  geom_smooth(method = "lm")+
   theme_classic()
-
-#want to make sure this is still following a sat curve
-ggplot(data = result, mapping = aes(x = Gamma_diversity, y = TotalAbundance))+
-  geom_point()+
-  geom_smooth()+
-  theme_classic()
-
-
-# okay so at this point
-
-# what if we correct for abundance?
-ggplot(data = result, mapping = aes(x = Beta_relative, y = LandscapeR0))+
-  geom_point()+
-  geom_smooth()+
-  theme_classic()
-
-result$Gamma_relative <- result$Gamma_diversity/result$TotalAbundance
-ggplot(data = result, mapping = aes(x = Gamma_relative, y = LandscapeR0))+
-  geom_point()+
-  geom_smooth()+
-  theme_classic()
-
-

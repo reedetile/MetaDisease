@@ -67,13 +67,7 @@ v[6] <- runif(n = 1, min = v[5], max = 0.1) #should find citation for max recove
 v
 
 #Determining dispersal rate
-psi <- c(0.83, 0.62, 0.14,NA, 0.12,0.64)
-psi[4] <- runif(n = 1, min = psi[5], max = psi[3])
-
-#Can't define N_meta here, so will need to do so within simulation
-# N_meta <- colSums(N)
-# phi <- ifelse(N_meta > 0, psi/N_meta, 0)
-# phi
+phi <- runif(6) # need to check simulation for determining if diserpsal matters
 # alpha <- #disease specific mortality
 # species_chara <- data.frame(Species = Species,
 #                             birth = birth, 
@@ -162,35 +156,72 @@ for (a in 1:length(meta_comm_list)) {
       connect[i,j] <- ifelse(i == j, stay, go)
     }
   }
-  S <- ceiling(meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #value of susceptibles
+  S <- meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99) #value of susceptibles
   I <- meta_comm_list[[a]][,1:6] - S #value of infecteds
   N <- S+I #total pop of a patch
   S <- as.matrix(S)
   I <- as.matrix(I)
   N <- as.matrix(N)
   N_meta <- colSums(N)
-  phi <- ifelse(N_meta > 0, psi/N_meta, 0) #get dispersal rate
+  phi <- phi #get dispersal rate
+  FI_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
   b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
+  Prev_I <- matrix(nrow = num_patches, ncol = num_spp)    
+  Prev_S  <- matrix(nrow = num_patches, ncol = num_spp)
+  # Loop through patches and species
   for (p in 1:num_patches) {
-    for(q in 1:num_patches){
-      for (i in 1:num_spp) {
-        for (j in 1:num_spp) {
-          #establish parameters for time t of species s
-          connectivity_s <- phi[i]*sum(-connect[p,q]*S[p,i] + connect[q,p]*S[q,i])
-          connectivity_I <- phi[i]*sum(-connect[p,q]*I[p,i] + connect[q,p]*I[q,i])
-          birth_rate <- birth[i]*N[p,i]
-          death_s <- d[i]*S[p,i]
-          loss_I <- (v[i]+d[i])*I[p,i]
-          FI <- ifelse(N[p,j] > 0, beta[i,j]*S[p,i]*(I[p,j]/N[p,j]), 0)
-          
-          #change in rate of susceptible + infectious individuals
-          
-          #calculate R0 for each species at each patch
-          b[p,i] <- v[i] + d[i] #gets loss rate
-          r0_species_patch[p,i] <- beta[i,i]/b[p,i]
+    
+    # Skip this patch if any S, I, or N values are NA
+    if (any(is.na(S[p, ])) || any(is.na(I[p, ])) || any(is.na(N[p, ]))) {
+      next
+    }
+    
+    total_pop_patch <- sum(N[p, ], na.rm = TRUE) # total population in patch p
+    
+    for (i in 1:num_spp) {
+      
+      # Skip this species if values are NA or total population is zero
+      if (is.na(N[p, i]) || total_pop_patch == 0) {
+        next
+      }
+      
+      birth_rate <- birth[i] * N[p, i]  # birth rate for species i in patch p
+      prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
+      # print(prop_spp)
+      b[p, i] <- v[i] + d[i]  # total loss rate
+      r0_biased <- beta[i, i] / b[p, i]  # baseline R0
+      
+      # Calculate prevalence of infection and FI_matrix
+      for (j in 1:num_spp) {
+        
+        if (N[p, j] > 0) {
+          Prev_I[p, j] <- I[p, j] / N[p, j]
+        } else {
+          Prev_I[p, j] <- 0
+        }
+        
+        if (N[p, i] > 0) {
+          Prev_S[p, i] <- S[p, i] / N[p, i]
+        } else {
+          Prev_S[p, i] <- 0
+        }
+        
+        if (N[p, i] > 0 && Prev_S[p, i] > 0) {
+          FI_matrix[p, j] <- (beta[i, j] / beta[i, i]) *
+            (N[p, j] / N[p, i]) *
+            (Prev_I[p, j] / Prev_S[p, i])
+        } else {
+          FI_matrix[p, j] <- 0
         }
       }
+      # print(FI_matrix)
+      # Community context adjustment
+      sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
+      community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)
+      # print(community_context)
+      # Save R0 values
+      r0_species_patch[p, i] <- r0_biased * community_context
     }
   }
   # Calculate variables
@@ -289,9 +320,7 @@ v[3] <- max(mid_low_recovery)
 v[6] <- runif(n = 1, min = v[5], max = 0.1) #should find citation for max recovery rate
 v
 
-#Determining dispersal rate
-psi <- c(0.83, 0.62, 0.14,NA, 0.12,0.64)
-psi[4] <- runif(n = 1, min = psi[5], max = psi[3])
+phi <- runif(6) # need to check simulation for determining if diserpsal matters
 stay <- rbeta(n = 1, shape1 = 4, shape2 = 2) #probability individuals stay in a patch?
 go <- 1 - stay # probability individuals move. Should make sure this is always higher
 connect <- matrix(data = NA,
@@ -344,10 +373,6 @@ for (a in 1:length(meta_comm_list)) {
   intra_RDRAY <- trans_rate(l = 0, u = intra_RCAT, alpha = 4,beta = 2)
   inter_RDRAY <- trans_rate(l = 0, u = intra_RDRAY, alpha = 1.5, beta = 3.5)
   
-  
-  
-  
-  
   beta <- matrix(data = NA, nrow = num_spp, ncol = num_spp)
   for (i in 1:nrow(beta)) {
     for (j in 1:ncol(beta)) {
@@ -367,35 +392,72 @@ for (a in 1:length(meta_comm_list)) {
     }
   }
   beta <- beta/90
-  S <- ceiling(meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #value of susceptibles
+  S <- meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99) #value of susceptibles
   I <- meta_comm_list[[a]][,1:6] - S #value of infecteds
   N <- S+I #total pop of a patch
   S <- as.matrix(S)
   I <- as.matrix(I)
   N <- as.matrix(N)
   N_meta <- colSums(N)
-  phi <- ifelse(N_meta > 0, psi/N_meta, 0) #get dispersal rate
+  phi <- phi #get dispersal rate
+  FI_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
   b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
+  Prev_I <- matrix(nrow = num_patches, ncol = num_spp)    
+  Prev_S  <- matrix(nrow = num_patches, ncol = num_spp)
+  # Loop through patches and species
   for (p in 1:num_patches) {
-    for(q in 1:num_patches){
-      for (i in 1:num_spp) {
-        for (j in 1:num_spp) {
-          #establish parameters for time t of species s
-          connectivity_s <- phi[i]*sum(-connect[p,q]*S[p,i] + connect[q,p]*S[q,i])
-          connectivity_I <- phi[i]*sum(-connect[p,q]*I[p,i] + connect[q,p]*I[q,i])
-          birth_rate <- birth[i]*N[p,i]
-          death_s <- d[i]*S[p,i]
-          loss_I <- (v[i]+d[i])*I[p,i]
-          FI <- ifelse(N[p,j] > 0, beta[i,j]*S[p,i]*(I[p,j]/N[p,j]), 0)
-          
-          #change in rate of susceptible + infectious individuals
-          
-          #calculate R0 for each species at each patch
-          b[p,i] <- v[i] + d[i] #gets loss rate
-          r0_species_patch[p,i] <- beta[i,i]/b[p,i]
+    
+    # Skip this patch if any S, I, or N values are NA
+    if (any(is.na(S[p, ])) || any(is.na(I[p, ])) || any(is.na(N[p, ]))) {
+      next
+    }
+    
+    total_pop_patch <- sum(N[p, ], na.rm = TRUE) # total population in patch p
+    
+    for (i in 1:num_spp) {
+      
+      # Skip this species if values are NA or total population is zero
+      if (is.na(N[p, i]) || total_pop_patch == 0) {
+        next
+      }
+      
+      birth_rate <- birth[i] * N[p, i]  # birth rate for species i in patch p
+      prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
+      # print(prop_spp)
+      b[p, i] <- v[i] + d[i]  # total loss rate
+      r0_biased <- beta[i, i] / b[p, i]  # baseline R0
+      
+      # Calculate prevalence of infection and FI_matrix
+      for (j in 1:num_spp) {
+        
+        if (N[p, j] > 0) {
+          Prev_I[p, j] <- I[p, j] / N[p, j]
+        } else {
+          Prev_I[p, j] <- 0
+        }
+        
+        if (N[p, i] > 0) {
+          Prev_S[p, i] <- S[p, i] / N[p, i]
+        } else {
+          Prev_S[p, i] <- 0
+        }
+        
+        if (N[p, i] > 0 && Prev_S[p, i] > 0) {
+          FI_matrix[p, j] <- (beta[i, j] / beta[i, i]) *
+            (N[p, j] / N[p, i]) *
+            (Prev_I[p, j] / Prev_S[p, i])
+        } else {
+          FI_matrix[p, j] <- 0
         }
       }
+      # print(FI_matrix)
+      # Community context adjustment
+      sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
+      community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)
+      # print(community_context)
+      # Save R0 values
+      r0_species_patch[p, i] <- r0_biased * community_context
     }
   }
   # Calculate variables
@@ -448,7 +510,8 @@ setwd(main.wd)
 source('Epimodel_funcs.R')
 meta_comm_list <- readRDS("metacomm_2Patch.RDS")
 num_spp <- 6
-num_patches <- 2#species characteristics
+num_patches <- 2
+#species characteristics
 #species characteristics
 Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
 # PREG = Pseudacris Regilla (Pacific tree frog)
@@ -479,8 +542,8 @@ v[6] <- runif(n = 1, min = v[5], max = 0.1) #should find citation for max recove
 v
 
 #Determining dispersal rate
-psi <- c(0.83, 0.62, 0.14,NA, 0.12,0.64)
-psi[4] <- runif(n = 1, min = psi[5], max = psi[3])
+phi <- runif(6) # need to check simulation for determining if diserpsal matters
+
 
 #Can't define N_meta here, so will need to do so within simulation
 # N_meta <- colSums(N)
@@ -575,35 +638,72 @@ colnames(death_sens) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT","
                             "Beta_relative","LandscapeR0", "MetaCommID","Death_Max","Death_Min","Death_range")
 for (a in 1:length(meta_comm_list)) {
   d <- runif(6)
-  S <- ceiling(meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #value of susceptibles
+  S <- meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99) #value of susceptibles
   I <- meta_comm_list[[a]][,1:6] - S #value of infecteds
   N <- S+I #total pop of a patch
   S <- as.matrix(S)
   I <- as.matrix(I)
   N <- as.matrix(N)
   N_meta <- colSums(N)
-  phi <- ifelse(N_meta > 0, psi/N_meta, 0) #get dispersal rate
+  phi <- phi #get dispersal rate
+  FI_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
   b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
+  Prev_I <- matrix(nrow = num_patches, ncol = num_spp)    
+  Prev_S  <- matrix(nrow = num_patches, ncol = num_spp)
+  # Loop through patches and species
   for (p in 1:num_patches) {
-    for(q in 1:num_patches){
-      for (i in 1:num_spp) {
-        for (j in 1:num_spp) {
-          #establish parameters for time t of species s
-          connectivity_s <- phi[i]*sum(-connect[p,q]*S[p,i] + connect[q,p]*S[q,i])
-          connectivity_I <- phi[i]*sum(-connect[p,q]*I[p,i] + connect[q,p]*I[q,i])
-          birth_rate <- birth[i]*N[p,i]
-          death_s <- d[i]*S[p,i]
-          loss_I <- (v[i]+d[i])*I[p,i]
-          FI <- ifelse(N[p,j] > 0, beta[i,j]*S[p,i]*(I[p,j]/N[p,j]), 0)
-          
-          #change in rate of susceptible + infectious individuals
-          
-          #calculate R0 for each species at each patch
-          b[p,i] <- v[i] + d[i] #gets loss rate
-          r0_species_patch[p,i] <- beta[i,i]/b[p,i]
+    
+    # Skip this patch if any S, I, or N values are NA
+    if (any(is.na(S[p, ])) || any(is.na(I[p, ])) || any(is.na(N[p, ]))) {
+      next
+    }
+    
+    total_pop_patch <- sum(N[p, ], na.rm = TRUE) # total population in patch p
+    
+    for (i in 1:num_spp) {
+      
+      # Skip this species if values are NA or total population is zero
+      if (is.na(N[p, i]) || total_pop_patch == 0) {
+        next
+      }
+      
+      birth_rate <- birth[i] * N[p, i]  # birth rate for species i in patch p
+      prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
+      # print(prop_spp)
+      b[p, i] <- v[i] + d[i]  # total loss rate
+      r0_biased <- beta[i, i] / b[p, i]  # baseline R0
+      
+      # Calculate prevalence of infection and FI_matrix
+      for (j in 1:num_spp) {
+        
+        if (N[p, j] > 0) {
+          Prev_I[p, j] <- I[p, j] / N[p, j]
+        } else {
+          Prev_I[p, j] <- 0
+        }
+        
+        if (N[p, i] > 0) {
+          Prev_S[p, i] <- S[p, i] / N[p, i]
+        } else {
+          Prev_S[p, i] <- 0
+        }
+        
+        if (N[p, i] > 0 && Prev_S[p, i] > 0) {
+          FI_matrix[p, j] <- (beta[i, j] / beta[i, i]) *
+            (N[p, j] / N[p, i]) *
+            (Prev_I[p, j] / Prev_S[p, i])
+        } else {
+          FI_matrix[p, j] <- 0
         }
       }
+      # print(FI_matrix)
+      # Community context adjustment
+      sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
+      community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)
+      # print(community_context)
+      # Save R0 values
+      r0_species_patch[p, i] <- r0_biased * community_context
     }
   }
   # Calculate variables
@@ -667,7 +767,7 @@ death_range_plot
 death_plots <- (death_max_plot + death_min_plot) / death_range_plot
 death_plots
 setwd(graphs)
-ggsave(filename= "death_plots.png", plot = death_plots)
+ggsave(filename= "death_plots2.png", plot = death_plots)
 
 
 #############################################################################################
@@ -678,7 +778,10 @@ main.wd <- "D:/gitrepos/MetaDisease"
 graphs <- paste(main.wd,"/Graphs",sep = "")
 setwd(main.wd)
 source('Epimodel_funcs.R')
-source('Metacomm_2patch.R')
+meta_comm_list <- readRDS("metacomm_2Patch.RDS")
+
+num_spp <- 6
+num_patches <- 2
 
 #species characteristics
 Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
@@ -705,8 +808,8 @@ d[3] <- runif(n = 1, min = d[[4]], max = d[[2]])
 
 
 #Determining dispersal rate
-psi <- c(0.83, 0.62, 0.14,NA, 0.12,0.64)
-psi[4] <- runif(n = 1, min = psi[5], max = psi[3])
+phi <- runif(6) # need to check simulation for determining if diserpsal matters
+
 
 #Can't define N_meta here, so will need to do so within simulation
 # N_meta <- colSums(N)
@@ -808,28 +911,72 @@ for (a in 1:length(meta_comm_list)) {
   I <- as.matrix(I)
   N <- as.matrix(N)
   N_meta <- colSums(N)
-  phi <- ifelse(N_meta > 0, psi/N_meta, 0) #get dispersal rate
+  S <- meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99) #value of susceptibles
+  I <- meta_comm_list[[a]][,1:6] - S #value of infecteds
+  N <- S+I #total pop of a patch
+  S <- as.matrix(S)
+  I <- as.matrix(I)
+  N <- as.matrix(N)
+  N_meta <- colSums(N)
+  phi <- phi #get dispersal rate
+  FI_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
   b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
+  Prev_I <- matrix(nrow = num_patches, ncol = num_spp)    
+  Prev_S  <- matrix(nrow = num_patches, ncol = num_spp)
+  # Loop through patches and species
   for (p in 1:num_patches) {
-    for(q in 1:num_patches){
-      for (i in 1:num_spp) {
-        for (j in 1:num_spp) {
-          #establish parameters for time t of species s
-          connectivity_s <- phi[i]*sum(-connect[p,q]*S[p,i] + connect[q,p]*S[q,i])
-          connectivity_I <- phi[i]*sum(-connect[p,q]*I[p,i] + connect[q,p]*I[q,i])
-          birth_rate <- birth[i]*N[p,i]
-          death_s <- d[i]*S[p,i]
-          loss_I <- (v[i]+d[i])*I[p,i]
-          FI <- ifelse(N[p,j] > 0, beta[i,j]*S[p,i]*(I[p,j]/N[p,j]), 0)
-          
-          #change in rate of susceptible + infectious individuals
-          
-          #calculate R0 for each species at each patch
-          b[p,i] <- v[i] + d[i] #gets loss rate
-          r0_species_patch[p,i] <- beta[i,i]/b[p,i]
+    
+    # Skip this patch if any S, I, or N values are NA
+    if (any(is.na(S[p, ])) || any(is.na(I[p, ])) || any(is.na(N[p, ]))) {
+      next
+    }
+    
+    total_pop_patch <- sum(N[p, ], na.rm = TRUE) # total population in patch p
+    
+    for (i in 1:num_spp) {
+      
+      # Skip this species if values are NA or total population is zero
+      if (is.na(N[p, i]) || total_pop_patch == 0) {
+        next
+      }
+      
+      birth_rate <- birth[i] * N[p, i]  # birth rate for species i in patch p
+      prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
+      # print(prop_spp)
+      b[p, i] <- v[i] + d[i]  # total loss rate
+      r0_biased <- beta[i, i] / b[p, i]  # baseline R0
+      
+      # Calculate prevalence of infection and FI_matrix
+      for (j in 1:num_spp) {
+        
+        if (N[p, j] > 0) {
+          Prev_I[p, j] <- I[p, j] / N[p, j]
+        } else {
+          Prev_I[p, j] <- 0
+        }
+        
+        if (N[p, i] > 0) {
+          Prev_S[p, i] <- S[p, i] / N[p, i]
+        } else {
+          Prev_S[p, i] <- 0
+        }
+        
+        if (N[p, i] > 0 && Prev_S[p, i] > 0) {
+          FI_matrix[p, j] <- (beta[i, j] / beta[i, i]) *
+            (N[p, j] / N[p, i]) *
+            (Prev_I[p, j] / Prev_S[p, i])
+        } else {
+          FI_matrix[p, j] <- 0
         }
       }
+      # print(FI_matrix)
+      # Community context adjustment
+      sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
+      community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)
+      # print(community_context)
+      # Save R0 values
+      r0_species_patch[p, i] <- r0_biased * community_context
     }
   }
   # Calculate variables
@@ -894,7 +1041,7 @@ recover_plots <- (recover_max_plot + recover_min_plot) / recover_range_plot
 recover_plots
 
 setwd(graphs)
-ggsave(filename = "recoverygraphs.png", plot = recover_plots)
+ggsave(filename = "recoverygraphs2.png", plot = recover_plots)
 
 
 
@@ -906,7 +1053,10 @@ main.wd <- "D:/gitrepos/MetaDisease"
 graphs <- paste(main.wd,"/Graphs",sep = "")
 setwd(main.wd)
 source('Epimodel_funcs.R')
-source('Metacomm_2patch.R')
+meta_comm_list <- readRDS("metacomm_2Patch.RDS")
+
+num_spp <- 6
+num_patches <- 2
 
 #species characteristics
 Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
@@ -1028,35 +1178,73 @@ colnames(disperse_sens) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT
                             "BetaDiversity","Gamma_diversity",
                             "Beta_relative","LandscapeR0", "MetaCommID","disperse_Max","disperse_Min","disperse_range")
 for (a in 1:length(meta_comm_list)) {
-  S <- ceiling(meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99)) #value of susceptibles
+  phi <- runif(6) #get dispersal rate
+  S <- meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99) #value of susceptibles
   I <- meta_comm_list[[a]][,1:6] - S #value of infecteds
   N <- S+I #total pop of a patch
   S <- as.matrix(S)
   I <- as.matrix(I)
   N <- as.matrix(N)
   N_meta <- colSums(N)
-  phi <- runif(6) #get dispersal rate
+  phi <- phi #get dispersal rate
+  FI_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
   b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
+  Prev_I <- matrix(nrow = num_patches, ncol = num_spp)    
+  Prev_S  <- matrix(nrow = num_patches, ncol = num_spp)
+  # Loop through patches and species
   for (p in 1:num_patches) {
-    for(q in 1:num_patches){
-      for (i in 1:num_spp) {
-        for (j in 1:num_spp) {
-          #establish parameters for time t of species s
-          connectivity_s <- phi[i]*sum(-connect[p,q]*S[p,i] + connect[q,p]*S[q,i])
-          connectivity_I <- phi[i]*sum(-connect[p,q]*I[p,i] + connect[q,p]*I[q,i])
-          birth_rate <- birth[i]*N[p,i]
-          death_s <- d[i]*S[p,i]
-          loss_I <- (v[i]+d[i])*I[p,i]
-          FI <- ifelse(N[p,j] > 0, beta[i,j]*S[p,i]*(I[p,j]/N[p,j]), 0)
-          
-          #change in rate of susceptible + infectious individuals
-          
-          #calculate R0 for each species at each patch
-          b[p,i] <- v[i] + d[i] #gets loss rate
-          r0_species_patch[p,i] <- beta[i,i]/b[p,i]
+    
+    # Skip this patch if any S, I, or N values are NA
+    if (any(is.na(S[p, ])) || any(is.na(I[p, ])) || any(is.na(N[p, ]))) {
+      next
+    }
+    
+    total_pop_patch <- sum(N[p, ], na.rm = TRUE) # total population in patch p
+    
+    for (i in 1:num_spp) {
+      
+      # Skip this species if values are NA or total population is zero
+      if (is.na(N[p, i]) || total_pop_patch == 0) {
+        next
+      }
+      
+      birth_rate <- birth[i] * N[p, i]  # birth rate for species i in patch p
+      prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
+      # print(prop_spp)
+      b[p, i] <- v[i] + d[i]  # total loss rate
+      r0_biased <- beta[i, i] / b[p, i]  # baseline R0
+      
+      # Calculate prevalence of infection and FI_matrix
+      for (j in 1:num_spp) {
+        
+        if (N[p, j] > 0) {
+          Prev_I[p, j] <- I[p, j] / N[p, j]
+        } else {
+          Prev_I[p, j] <- 0
+        }
+        
+        if (N[p, i] > 0) {
+          Prev_S[p, i] <- S[p, i] / N[p, i]
+        } else {
+          Prev_S[p, i] <- 0
+        }
+        
+        if (N[p, i] > 0 && Prev_S[p, i] > 0) {
+          FI_matrix[p, j] <- (beta[i, j] / beta[i, i]) *
+            (N[p, j] / N[p, i]) *
+            (Prev_I[p, j] / Prev_S[p, i])
+        } else {
+          FI_matrix[p, j] <- 0
         }
       }
+      # print(FI_matrix)
+      # Community context adjustment
+      sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
+      community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)
+      # print(community_context)
+      # Save R0 values
+      r0_species_patch[p, i] <- r0_biased * community_context
     }
   }
   # Calculate variables
@@ -1121,4 +1309,4 @@ disperse_plots <- (disperse_max_plot + disperse_min_plot)/disperse_range_plot
 disperse_plots
 
 setwd(graphs)
-ggsave(filename = "disperseplots.png", plot = disperse_plots)
+ggsave(filename = "disperseplots2.png", plot = disperse_plots)
