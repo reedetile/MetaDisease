@@ -226,7 +226,6 @@ for (a in 1:length(meta_comm_list)) {
       prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
       # print(prop_spp)
       b[p, i] <- v[i] + d[i]  # total loss rate
-      r0_biased <- beta[i, i] / b[p, i]  # baseline R0
       
       # Calculate prevalence of infection and FI_matrix
       for (j in 1:num_spp) {
@@ -251,7 +250,8 @@ for (a in 1:length(meta_comm_list)) {
           FI_matrix[p, j] <- 0
         }
       }
-      # print(FI_matrix)
+      # print(FI_matrix)      
+      r0_biased <- 1/(1-Prev_S[p,i])  # baseline R0
       # Community context adjustment
       sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
       community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)

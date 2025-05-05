@@ -18,7 +18,7 @@ library(ggplot2)
 # Program Body------------------------------------------
 # Define Fucntions------------------------------------
 #######################################################
-# FUNCTION: build_R_with_data
+# FUNCTION: build_R_with_data_env
 # Purpose: to calculate R matrix with data
 #input:R0s, b, beta, S, P
 #R0s = An Pxs Matrix with the species species specific R0 at each patch
@@ -29,18 +29,13 @@ library(ggplot2)
 #output: fullR.an S*P by S*P matrix. 
 #-----------------------------------------------------
 
-build_R_with_data <- function(R0s,b,beta,S,P) {
+build_R_with_data_env <- function(R0s,b,beta,S,P) {
   fullR <- matrix(data = 0, nrow = P*S, ncol = P*S)
   for (p in 1:P) {
     tR0 <- R0s[p,]
     Rmat <- matrix(data = rep(unlist(tR0),S), nrow = S, ncol = S)
     tb <- b[p,]
     bmat <- matrix(data = rep(unlist(tb),S), nrow = S, ncol = S)
-    # I have removed the following code (in .py) but should ask mark if I need to add something for
-    # Force of infection
-    # tλ = λs[:, p]
-    # λmat = np.repeat(tλ, S).reshape(S, S).T
-    # λ_ratios = λmat / λmat.T    
     Rmat <- Rmat * bmat
     Rmat[is.nan(Rmat)] = 0
     Rmat[is.infinite(Rmat)] = 0
@@ -48,6 +43,36 @@ build_R_with_data <- function(R0s,b,beta,S,P) {
     start <- ifelse(p == 1, p,(S*p)-(S-1))
     stop <- start + S - 1
     fullR[start:stop, start:stop] <- Rmat
+  }
+  
+  return(fullR)
+}
+
+#######################################################
+# FUNCTION: build_R_with_data_freq
+# Purpose: to calculate R matrix with data
+#input:R0s, b, beta, S, P
+#R0s = An Pxs Matrix with the species specific R0 at each patch
+# b = An PxS matrix. The relative loss rate of infecteds for each species in a patch
+# beta = an SxS matrix. The transmission coefficient between species i and species j
+# S = number of species
+# P = number of patches
+#output: fullR.an S*P by S*P matrix. 
+#-----------------------------------------------------
+
+build_R_with_data_freq <- function(R0s,b,beta,S,P) {
+  fullR <- matrix(data = 0, nrow = P, ncol = P)
+  for (p in 1:P) {
+    tR0 <- R0s[p,]
+    Rmat <- matrix(data = 0, nrow = S, ncol = S)
+    diag(Rmat) <- tR0
+    tb <- b[p,]
+    bmat <- matrix(data = rep(unlist(tb),S), nrow = S, ncol = S)
+    Rmat <- Rmat * bmat
+    Rmat[is.nan(Rmat)] = 0
+    Rmat[is.infinite(Rmat)] = 0
+    Rmat <- as.matrix(Rmat)
+    diag(fullR)[[p]] <- max(abs(eigen(Rmat)$values))
   }
   
   return(fullR)
@@ -103,7 +128,7 @@ build_B_with_data <- function(Cmat, phi, b, S, P) {
 }
 
 ####################################################################
-# Function: landscape_R0
+# Function: landscape_R0_env
 # Purpose: Calculate the landscape level R0 from the data
 #Input: R0s, Cmat, phi, b, S, P
 # R0s_spps = SxP matrix. Each entry is the species-specific R0 for species s in patch p
@@ -115,8 +140,8 @@ build_B_with_data <- function(Cmat, phi, b, S, P) {
 # P = int. Number of patches
 #Output: K. an S*P x S*P matrix. The matrix should be ordered by patch then by species. max eigenvalue of K = landscape R0.
 # R, a component of K, and B, a component of K
-landscape_R0 <- function(R0_spps,Cmat,b, beta, phi,S,P){
-  R <- build_R_with_data(R0s = R0_spps,
+landscape_R0_env <- function(R0_spps,Cmat,b, beta, phi,S,P){
+  R <- build_R_with_data_env(R0s = R0_spps,
                          b = b,
                          beta = beta,
                          S = S,
@@ -130,42 +155,95 @@ landscape_R0 <- function(R0_spps,Cmat,b, beta, phi,S,P){
   return(list(K = K, R = R, B = B))
 }
 
-# Example of using the 3 functions
-# S <- 2 #number of species
-# P <- 2 #number of patches
-# R0s <- matrix(data = rnorm(n = S*P, mean = 1, sd = 0.1), nrow = P, ncol = S)
-# b <- matrix(data = rnorm(n = S*P, mean = 1, sd = 0.1), nrow = P, ncol = S)
-# phi <- rnorm(n = 2, mean = 0.5, sd = 0.1)
-# #transmission
-# beta <- matrix(data = NA, nrow = S, ncol = S)
-# for (i in 1:nrow(beta)) {
-#   for (j in 1:ncol(beta)) {
-#     beta[i,j] <- ifelse(i == j, rbeta(n = 1, shape1 = 2, shape2 = 10),rbeta(n = 1, shape1 = 1, shape2 = 1))
-#   }
-# }
-# #connectivity
-# Cmat <- matrix(data = rnorm(n = P^2, mean = 0.5, sd = 0.1),
-#             nrow = P,
-#             ncol = P)
-# 
-# 
-# r <- build_R_with_data(R0s = R0s,
-#                        b = b,
-#                        beta = beta,
-#                        S = S,
-#                        P = P)
-# B <- build_B_with_data(Cmat = Cmat,
-#                        phi = phi,
-#                        b = b,
-#                        S = S,
-#                        P = P)
-# K2 <- landscape_R0(R0_spps = R0s,
-#                    Cmat = Cmat,
-#                    b = b,
-#                    beta = beta,
-#                    phi = phi,
-#                    S = S,
-#                    P = P)
-# max(abs(eigen(K2[[1]])$values))
-# eigen(K2[[1]])$values[1]
-# View(K2[[1]])
+
+####################################################################
+# Function: landscape_R0_freq
+# Purpose: Calculate the landscape level R0 from the data
+#Input: R0s, Cmat, phi, b, S, P
+# R0s_spps = SxP matrix. Each entry is the species-specific R0 for species s in patch p
+# Cmat = a PxP matrix. The colonization probabilities c_ij from patch j -> i
+# phi = an array of length S. The dispersal rates for each species
+# b = An SxP array. Relative loss rates of infecteds for each species in a patch
+# beta = a transmission coefficient between species
+# S = int. Number of species
+# P = int. Number of patches
+#Output: K. an S*P x S*P matrix. The matrix should be ordered by patch then by species. max eigenvalue of K = landscape R0.
+# R, a component of K, and B, a component of K
+landscape_R0_freq <- function(R0_spps,Cmat,b, beta, phi,S,P){
+  R <- build_R_with_data_freq(R0s = R0_spps,
+                         b = b,
+                         beta = beta,
+                         S = S,
+                         P = P)
+  B <- build_B_with_data(Cmat = Cmat,
+                         phi = phi,
+                         b = b,
+                         S = S,
+                         P = P)
+  K <- R %*% solve(-1*B)
+  return(list(K = K, R = R, B = B))
+}
+
+
+# Examples of using the functions 
+S <- 2 #number of species
+P <- 2 #number of patches
+R0s <- matrix(data = rnorm(n = S*P, mean = 1, sd = 0.1), nrow = P, ncol = S)
+b <- matrix(data = rnorm(n = S*P, mean = 1, sd = 0.1), nrow = P, ncol = S)
+phi <- rnorm(n = 2, mean = 0.5, sd = 0.1)
+#transmission
+beta <- matrix(data = NA, nrow = S, ncol = S)
+for (i in 1:nrow(beta)) {
+  for (j in 1:ncol(beta)) {
+    beta[i,j] <- ifelse(i == j, rbeta(n = 1, shape1 = 2, shape2 = 10),rbeta(n = 1, shape1 = 1, shape2 = 1))
+  }
+}
+#connectivity
+Cmat <- matrix(data = rnorm(n = P^2, mean = 0.5, sd = 0.1),
+            nrow = P,
+            ncol = P)
+
+### Environmental zoospore model
+r <- build_R_with_data_env(R0s = R0s,
+                       b = b,
+                       beta = beta,
+                       S = S,
+                       P = P)
+B <- build_B_with_data(Cmat = Cmat,
+                       phi = phi,
+                       b = b,
+                       S = S,
+                       P = P)
+K2 <- landscape_R0_env(R0_spps = R0s,
+                   Cmat = Cmat,
+                   b = b,
+                   beta = beta,
+                   phi = phi,
+                   S = S,
+                   P = P)
+max(abs(eigen(K2[[1]])$values))
+eigen(K2[[1]])$values[1]
+View(K2[[1]])
+
+### Freq dependent model
+r_freq <- build_R_with_data_freq(R0s = R0s,
+                           b = b,
+                           beta = beta,
+                           S = S,
+                           P = P)
+B <- build_B_with_data(Cmat = Cmat,
+                       phi = phi,
+                       b = b,
+                       S = S,
+                       P = P)
+# Not currently working. Need to probably adjust B matrix
+K_freq <- landscape_R0_freq(R0_spps = R0s,
+                       Cmat = Cmat,
+                       b = b,
+                       beta = beta,
+                       phi = phi,
+                       S = S,
+                       P = P)
+max(abs(eigen(K2[[1]])$values))
+eigen(K2[[1]])$values[1]
+View(K2[[1]])
