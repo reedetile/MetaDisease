@@ -91,7 +91,7 @@ trans_rate <- function(n = 1,x = seq(0,1,length = 100),a,b){
 
 # PREG
 intra_PREG <- trans_rate(a = 4,b = 2)
-inter_PREG <- trans_rate(a = 4, b = 2.5)
+inter_PREG <- intra_PREG*0.85 #trans_rate(a = 4, b = 2.5)
 
 plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2), ylab = "density", type = 'l', col = "red")
 lines(x=x, dbeta(x, shape1 = 4, shape2 = 2.5), col = "blue")
@@ -99,35 +99,35 @@ lines(x=x, dbeta(x, shape1 = 4, shape2 = 2.5), col = "blue")
 
 # TGRAN
 intra_TGRAN <- trans_rate(a = 4, b = 2.25)
-inter_TGRAN <- trans_rate(a = 4, b = 2.5)
+inter_TGRAN <- intra_TGRAN*0.85 #trans_rate(a = 4, b = 2.5)
 
 plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.25), ylab = "density", type = 'l', col = "red")
 lines(x=x, dbeta(x, shape1 = 4, shape2 = 2.5), col = "blue")
 
 #TTOR
 intra_TTOR <- trans_rate(a = 3, b = 2.5)
-inter_TTOR <- trans_rate(a = 3, b = 2.75)
+inter_TTOR <- intra_TTOR*0.85 #trans_rate(a = 3, b = 2.75)
 
 plot(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.5), ylab = "density", type = 'l', col = "red")
 lines(x=x, dbeta(x, shape1 = 3, shape2 = 2.75), col = "blue")
 
 #ABOR
 intra_ABOR <- trans_rate(a = 2.5, b = 2.75)
-inter_ABOR <- trans_rate(a = 2.5, b = 3.0)
+inter_ABOR <- intra_ABOR*0.85 #trans_rate(a = 2.5, b = 3.0)
 
 plot(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 2.75), ylab = "density", type = 'l', col = "red")
 lines(x=x, dbeta(x, shape1 = 2.5, shape2 = 3.0), col = "blue")
 
 #RCAT
 intra_RCAT <- trans_rate(a = 2.0, b = 3.0)
-inter_RCAT <- trans_rate(a = 2.0, b = 3.25)
+inter_RCAT <- intra_RCAT*0.85 #trans_rate(a = 2.0, b = 3.25)
 
 plot(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.0), ylab = "density", type = 'l', col = "red")
 lines(x=x, dbeta(x, shape1 = 2.0, shape2 = 3.25), col = "blue")
 
 #RDRAY
 intra_RDRAY <- trans_rate(a = 1.5, b = 3.25)
-inter_RDRAY <- trans_rate(a = 1.5, b = 3.5)
+inter_RDRAY <- intra_RDRAY*0.85#trans_rate(a = 1.5, b = 3.5)
 
 plot(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.25), ylab = "density", type = 'l', col = "red")
 lines(x=x, dbeta(x, shape1 = 1.5, shape2 = 3.5), col = "blue")
@@ -169,13 +169,13 @@ for (i in 1:nrow(beta)) {
                             inter_RDRAY}
   }
 }
-beta <- beta/time #assumes that beta original is transmission over season. new beta is transmission
+beta #assumes that beta original is transmission over season. new beta is transmission
 #over a single day (or time step)
 
 #### meta-community characteristics
 #Connectivity of patches
-stay <- rbeta(n = 1, shape1 = 4, shape2 = 2) #probability individuals stay in a patch?
-go <- rbeta(n = 1, shape1 = 1.5, shape2 = 3.5) # probability individuals move
+stay <- 0.75#rbeta(n = 1, shape1 = 4, shape2 = 2) #probability individuals stay in a patch?
+go <- 0.25#rbeta(n = 1, shape1 = 1.5, shape2 = 3.5) # probability individuals move
 c <- matrix(data = NA,
             nrow = num_patches, 
             ncol = num_patches)
@@ -185,14 +185,13 @@ for(i in 1:ncol(c)){
   }
 }
 
-result <- data.frame(matrix(data = NA, nrow = length(meta_comm_list), ncol = 18))
+result <- data.frame(matrix(data = NA, nrow = length(meta_comm_list), ncol = 17))
 colnames(result) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY",
                        "PREG_rel","TGRAN_rel","TTOR_rel","ABOR_rel","RCAT_rel","RDRAY_rel",
-                       "BetaDiversity","Gamma_diversity",
-                       "Beta_relative","LandscapeR0", "MetaCommID")
+                       "BetaDiversity","Gamma_diversity","LandscapeR0", "MetaCommID")
 
 for (a in 1:length(meta_comm_list)) {
-  S <- meta_comm_list[[a]][,1:6]*c(0.8,0.85,0.9,0.93,0.95,.99) #value of susceptibles
+  S <- meta_comm_list[[a]][,1:6]*c(0.5,0.6,0.70,0.8,0.80,.9) #value of susceptibles
   I <- meta_comm_list[[a]][,1:6] - S #value of infecteds
   N <- S+I #total pop of a patch
   S <- as.matrix(S)
@@ -200,66 +199,8 @@ for (a in 1:length(meta_comm_list)) {
   N <- as.matrix(N)
   N_meta <- colSums(N)
   phi <- phi #get dispersal rate
-  FI_matrix <- matrix(nrow = num_patches, ncol = num_spp)
-  r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
-  b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
-  Prev_I <- matrix(nrow = num_patches, ncol = num_spp)    
-  Prev_S  <- matrix(nrow = num_patches, ncol = num_spp)
-  # Loop through patches and species
-  for (p in 1:num_patches) {
-    
-    # Skip this patch if any S, I, or N values are NA
-    if (any(is.na(S[p, ])) || any(is.na(I[p, ])) || any(is.na(N[p, ]))) {
-      next
-    }
-    
-    total_pop_patch <- sum(N[p, ], na.rm = TRUE) # total population in patch p
-    
-    for (i in 1:num_spp) {
-      
-      # Skip this species if values are NA or total population is zero
-      if (is.na(N[p, i]) || total_pop_patch == 0) {
-        next
-      }
-      
-      birth_rate <- birth[i] * N[p, i]  # birth rate for species i in patch p
-      prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
-      # print(prop_spp)
-      b[p, i] <- v[i] + d[i]  # total loss rate
-      
-      # Calculate prevalence of infection and FI_matrix
-      for (j in 1:num_spp) {
-        
-        if (N[p, j] > 0) {
-          Prev_I[p, j] <- I[p, j] / N[p, j]
-        } else {
-          Prev_I[p, j] <- 0
-        }
-        
-        if (N[p, i] > 0) {
-          Prev_S[p, i] <- S[p, i] / N[p, i]
-        } else {
-          Prev_S[p, i] <- 0
-        }
-        
-        if (N[p, i] > 0 && Prev_S[p, i] > 0) {
-          FI_matrix[p, j] <- (beta[i, j] / beta[i, i]) *
-            (N[p, j] / N[p, i]) *
-            (Prev_I[p, j] / Prev_S[p, i])
-        } else {
-          FI_matrix[p, j] <- 0
-        }
-      }
-      # print(FI_matrix)      
-      r0_biased <- 1/(1-Prev_S[p,i])  # baseline R0
-      # Community context adjustment
-      sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
-      community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)
-      # print(community_context)
-      # Save R0 values
-      r0_species_patch[p, i] <- r0_biased * community_context
-    }
-  }
+  b <- v + d  # total loss rate
+  alph <- rowSums(N)
   
   # Calculate variables
   result[a,1] <- sum(N) #total abundance
@@ -270,23 +211,22 @@ for (a in 1:length(meta_comm_list)) {
   }
   
   #add beta diversity
-  beta_diversity <- betadiver(N, method = 'w')
+  beta_diversity <- betadiver(N, method = 'sor')
   result[a,14] <- mean(beta_diversity, na.rm =T) #beta diversity
   result[a,15] <- sum(ifelse(result[a,1:6] > 0, 1,0)) #gamma diversity
   
-  result[a,16] <- result[a,7]/result[a,8] #beta diversity / total abundance
-  
   #calculate landscape R0
-  r0_landscape <- landscape_R0(R0_spps = r0_species_patch,
-                               Cmat = c,
-                               b = b,
-                               beta = beta,
-                               phi = phi,
-                               S = num_spp,
-                               P = num_patches)
+  r0_landscape <- landscape_R0_freq(beta = beta,
+                                    I = I,
+                                    N = N,
+                                    Cmat = c,
+                                    b = b,
+                                    phi = phi,
+                                    S = num_spp,
+                                    P = num_patches)
   
-  result[a,17] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
-  result[a,18] <- a #metacommunity ID
+  result[a,16] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
+  result[a,17] <- a #metacommunity ID
 }
 
 

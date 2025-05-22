@@ -136,7 +136,7 @@ for (i in 1:nrow(beta)) {
                             inter_RDRAY}
   }
 }
-beta <- beta/90
+beta
 
 
 # Simulation over metacommunities
@@ -166,64 +166,7 @@ for (a in 1:length(meta_comm_list)) {
   phi <- phi #get dispersal rate
   FI_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
-  b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
-  Prev_I <- matrix(nrow = num_patches, ncol = num_spp)    
-  Prev_S  <- matrix(nrow = num_patches, ncol = num_spp)
-  # Loop through patches and species
-  for (p in 1:num_patches) {
-    
-    # Skip this patch if any S, I, or N values are NA
-    if (any(is.na(S[p, ])) || any(is.na(I[p, ])) || any(is.na(N[p, ]))) {
-      next
-    }
-    
-    total_pop_patch <- sum(N[p, ], na.rm = TRUE) # total population in patch p
-    
-    for (i in 1:num_spp) {
-      
-      # Skip this species if values are NA or total population is zero
-      if (is.na(N[p, i]) || total_pop_patch == 0) {
-        next
-      }
-      
-      birth_rate <- birth[i] * N[p, i]  # birth rate for species i in patch p
-      prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
-      # print(prop_spp)
-      b[p, i] <- v[i] + d[i]  # total loss rate
-      r0_biased <- beta[i, i] / b[p, i]  # baseline R0
-      
-      # Calculate prevalence of infection and FI_matrix
-      for (j in 1:num_spp) {
-        
-        if (N[p, j] > 0) {
-          Prev_I[p, j] <- I[p, j] / N[p, j]
-        } else {
-          Prev_I[p, j] <- 0
-        }
-        
-        if (N[p, i] > 0) {
-          Prev_S[p, i] <- S[p, i] / N[p, i]
-        } else {
-          Prev_S[p, i] <- 0
-        }
-        
-        if (N[p, i] > 0 && Prev_S[p, i] > 0) {
-          FI_matrix[p, j] <- (beta[i, j] / beta[i, i]) *
-            (N[p, j] / N[p, i]) *
-            (Prev_I[p, j] / Prev_S[p, i])
-        } else {
-          FI_matrix[p, j] <- 0
-        }
-      }
-      # print(FI_matrix)
-      # Community context adjustment
-      sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
-      community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)
-      # print(community_context)
-      # Save R0 values
-      r0_species_patch[p, i] <- r0_biased * community_context
-    }
-  }
+  b <-  v + d
   # Calculate variables
   connect_sens[a,1] <- sum(N) #total abundance
   #abdunance of each species
@@ -240,13 +183,14 @@ for (a in 1:length(meta_comm_list)) {
   connect_sens[a,16] <- connect_sens[a,7]/connect_sens[a,8] #beta diversity / total abundance
   
   #calculate landscape R0
-  r0_landscape <- landscape_R0(R0_spps = r0_species_patch,
-                               Cmat = connect,
-                               b = b,
-                               beta = beta,
-                               phi = phi,
-                               S = num_spp,
-                               P = num_patches)
+  r0_landscape <- landscape_R0_freq(beta = beta,
+                                    I = I,
+                                    N = N,
+                                    Cmat = connect,
+                                    b = b,
+                                    phi = phi,
+                                    S = num_spp,
+                                    P = num_patches)
   
   connect_sens[a,17] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
   connect_sens[a,18] <- a #metacommunity ID
@@ -399,67 +343,7 @@ for (a in 1:length(meta_comm_list)) {
   I <- as.matrix(I)
   N <- as.matrix(N)
   N_meta <- colSums(N)
-  phi <- phi #get dispersal rate
-  FI_matrix <- matrix(nrow = num_patches, ncol = num_spp)
-  r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
-  b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
-  Prev_I <- matrix(nrow = num_patches, ncol = num_spp)    
-  Prev_S  <- matrix(nrow = num_patches, ncol = num_spp)
-  # Loop through patches and species
-  for (p in 1:num_patches) {
-    
-    # Skip this patch if any S, I, or N values are NA
-    if (any(is.na(S[p, ])) || any(is.na(I[p, ])) || any(is.na(N[p, ]))) {
-      next
-    }
-    
-    total_pop_patch <- sum(N[p, ], na.rm = TRUE) # total population in patch p
-    
-    for (i in 1:num_spp) {
-      
-      # Skip this species if values are NA or total population is zero
-      if (is.na(N[p, i]) || total_pop_patch == 0) {
-        next
-      }
-      
-      birth_rate <- birth[i] * N[p, i]  # birth rate for species i in patch p
-      prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
-      # print(prop_spp)
-      b[p, i] <- v[i] + d[i]  # total loss rate
-      r0_biased <- beta[i, i] / b[p, i]  # baseline R0
-      
-      # Calculate prevalence of infection and FI_matrix
-      for (j in 1:num_spp) {
-        
-        if (N[p, j] > 0) {
-          Prev_I[p, j] <- I[p, j] / N[p, j]
-        } else {
-          Prev_I[p, j] <- 0
-        }
-        
-        if (N[p, i] > 0) {
-          Prev_S[p, i] <- S[p, i] / N[p, i]
-        } else {
-          Prev_S[p, i] <- 0
-        }
-        
-        if (N[p, i] > 0 && Prev_S[p, i] > 0) {
-          FI_matrix[p, j] <- (beta[i, j] / beta[i, i]) *
-            (N[p, j] / N[p, i]) *
-            (Prev_I[p, j] / Prev_S[p, i])
-        } else {
-          FI_matrix[p, j] <- 0
-        }
-      }
-      # print(FI_matrix)
-      # Community context adjustment
-      sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
-      community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)
-      # print(community_context)
-      # Save R0 values
-      r0_species_patch[p, i] <- r0_biased * community_context
-    }
-  }
+  b <- v + d
   # Calculate variables
   trans_sens[a,1] <- sum(N) #total abundance
   #abdunance of each species
@@ -476,13 +360,14 @@ for (a in 1:length(meta_comm_list)) {
   trans_sens[a,16] <- trans_sens[a,7]/trans_sens[a,8] #beta diversity / total abundance
   
   #calculate landscape R0
-  r0_landscape <- landscape_R0(R0_spps = r0_species_patch,
-                               Cmat = connect,
-                               b = b,
-                               beta = beta,
-                               phi = phi,
-                               S = num_spp,
-                               P = num_patches)
+  r0_landscape <- landscape_R0_freq(beta = beta,
+                                    I = I,
+                                    N = N,
+                                    Cmat = connect,
+                                    b = b,
+                                    phi = phi,
+                                    S = num_spp,
+                                    P = num_patches)
   
   trans_sens[a,17] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
   trans_sens[a,18] <- a #metacommunity ID
@@ -645,67 +530,7 @@ for (a in 1:length(meta_comm_list)) {
   I <- as.matrix(I)
   N <- as.matrix(N)
   N_meta <- colSums(N)
-  phi <- phi #get dispersal rate
-  FI_matrix <- matrix(nrow = num_patches, ncol = num_spp)
-  r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
-  b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
-  Prev_I <- matrix(nrow = num_patches, ncol = num_spp)    
-  Prev_S  <- matrix(nrow = num_patches, ncol = num_spp)
-  # Loop through patches and species
-  for (p in 1:num_patches) {
-    
-    # Skip this patch if any S, I, or N values are NA
-    if (any(is.na(S[p, ])) || any(is.na(I[p, ])) || any(is.na(N[p, ]))) {
-      next
-    }
-    
-    total_pop_patch <- sum(N[p, ], na.rm = TRUE) # total population in patch p
-    
-    for (i in 1:num_spp) {
-      
-      # Skip this species if values are NA or total population is zero
-      if (is.na(N[p, i]) || total_pop_patch == 0) {
-        next
-      }
-      
-      birth_rate <- birth[i] * N[p, i]  # birth rate for species i in patch p
-      prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
-      # print(prop_spp)
-      b[p, i] <- v[i] + d[i]  # total loss rate
-      r0_biased <- beta[i, i] / b[p, i]  # baseline R0
-      
-      # Calculate prevalence of infection and FI_matrix
-      for (j in 1:num_spp) {
-        
-        if (N[p, j] > 0) {
-          Prev_I[p, j] <- I[p, j] / N[p, j]
-        } else {
-          Prev_I[p, j] <- 0
-        }
-        
-        if (N[p, i] > 0) {
-          Prev_S[p, i] <- S[p, i] / N[p, i]
-        } else {
-          Prev_S[p, i] <- 0
-        }
-        
-        if (N[p, i] > 0 && Prev_S[p, i] > 0) {
-          FI_matrix[p, j] <- (beta[i, j] / beta[i, i]) *
-            (N[p, j] / N[p, i]) *
-            (Prev_I[p, j] / Prev_S[p, i])
-        } else {
-          FI_matrix[p, j] <- 0
-        }
-      }
-      # print(FI_matrix)
-      # Community context adjustment
-      sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
-      community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)
-      # print(community_context)
-      # Save R0 values
-      r0_species_patch[p, i] <- r0_biased * community_context
-    }
-  }
+
   # Calculate variables
   death_sens[a,1] <- sum(N) #total abundance
   #abdunance of each species
@@ -722,13 +547,14 @@ for (a in 1:length(meta_comm_list)) {
   death_sens[a,16] <- death_sens[a,7]/death_sens[a,8] #beta diversity / total abundance
   
   #calculate landscape R0
-  r0_landscape <- landscape_R0(R0_spps = r0_species_patch,
-                               Cmat = connect,
-                               b = b,
-                               beta = beta,
-                               phi = phi,
-                               S = num_spp,
-                               P = num_patches)
+  r0_landscape <- landscape_R0_freq(beta = beta,
+                                    I = I,
+                                    N = N,
+                                    Cmat = connect,
+                                    b = b,
+                                    phi = phi,
+                                    S = num_spp,
+                                    P = num_patches)
   
   death_sens[a,17] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
   death_sens[a,18] <- a #metacommunity ID
@@ -742,8 +568,7 @@ death_max_plot <- ggplot(data = death_sens, mapping = aes(x = Death_Max, y = Lan
   geom_smooth(method = 'lm')+
   theme_classic()+
   xlab("Max death rate")+
-  ylab("Landscape R0")+
-  ylim(0,1)
+  ylab("Landscape R0")
 death_max_plot  
 
 death_min_plot <- ggplot(data = death_sens, mapping = aes(x = Death_Min, y = LandscapeR0))+
@@ -751,8 +576,7 @@ death_min_plot <- ggplot(data = death_sens, mapping = aes(x = Death_Min, y = Lan
   geom_smooth(method = 'loess')+
   theme_classic()+
   xlab("Min death rate")+
-  ylab("Landscape R0")+
-  ylim(0,1)
+  ylab("Landscape R0")
 death_min_plot  
 
 death_range_plot <- ggplot(data = death_sens, mapping = aes(x = Death_range, y = LandscapeR0))+
@@ -760,8 +584,7 @@ death_range_plot <- ggplot(data = death_sens, mapping = aes(x = Death_range, y =
   geom_smooth(method = 'lm')+
   theme_classic()+
   xlab("Death range")+
-  ylab("Landscape R0")+
-  ylim(0,1)
+  ylab("Landscape R0")
 death_range_plot  
 
 death_plots <- (death_max_plot + death_min_plot) / death_range_plot
@@ -921,64 +744,7 @@ for (a in 1:length(meta_comm_list)) {
   phi <- phi #get dispersal rate
   FI_matrix <- matrix(nrow = num_patches, ncol = num_spp)
   r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
-  b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
-  Prev_I <- matrix(nrow = num_patches, ncol = num_spp)    
-  Prev_S  <- matrix(nrow = num_patches, ncol = num_spp)
-  # Loop through patches and species
-  for (p in 1:num_patches) {
-    
-    # Skip this patch if any S, I, or N values are NA
-    if (any(is.na(S[p, ])) || any(is.na(I[p, ])) || any(is.na(N[p, ]))) {
-      next
-    }
-    
-    total_pop_patch <- sum(N[p, ], na.rm = TRUE) # total population in patch p
-    
-    for (i in 1:num_spp) {
-      
-      # Skip this species if values are NA or total population is zero
-      if (is.na(N[p, i]) || total_pop_patch == 0) {
-        next
-      }
-      
-      birth_rate <- birth[i] * N[p, i]  # birth rate for species i in patch p
-      prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
-      # print(prop_spp)
-      b[p, i] <- v[i] + d[i]  # total loss rate
-      r0_biased <- beta[i, i] / b[p, i]  # baseline R0
-      
-      # Calculate prevalence of infection and FI_matrix
-      for (j in 1:num_spp) {
-        
-        if (N[p, j] > 0) {
-          Prev_I[p, j] <- I[p, j] / N[p, j]
-        } else {
-          Prev_I[p, j] <- 0
-        }
-        
-        if (N[p, i] > 0) {
-          Prev_S[p, i] <- S[p, i] / N[p, i]
-        } else {
-          Prev_S[p, i] <- 0
-        }
-        
-        if (N[p, i] > 0 && Prev_S[p, i] > 0) {
-          FI_matrix[p, j] <- (beta[i, j] / beta[i, i]) *
-            (N[p, j] / N[p, i]) *
-            (Prev_I[p, j] / Prev_S[p, i])
-        } else {
-          FI_matrix[p, j] <- 0
-        }
-      }
-      # print(FI_matrix)
-      # Community context adjustment
-      sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
-      community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)
-      # print(community_context)
-      # Save R0 values
-      r0_species_patch[p, i] <- r0_biased * community_context
-    }
-  }
+  b <- v + d
   # Calculate variables
   recover_sens[a,1] <- sum(N) #total abundance
   #abdunance of each species
@@ -995,13 +761,14 @@ for (a in 1:length(meta_comm_list)) {
   recover_sens[a,16] <- recover_sens[a,7]/recover_sens[a,8] #beta diversity / total abundance
   
   #calculate landscape R0
-  r0_landscape <- landscape_R0(R0_spps = r0_species_patch,
-                               Cmat = connect,
-                               b = b,
-                               beta = beta,
-                               phi = phi,
-                               S = num_spp,
-                               P = num_patches)
+  r0_landscape <- landscape_R0_freq(beta = beta,
+                                    I = I,
+                                    N = N,
+                                    Cmat = connect,
+                                    b = b,
+                                    phi = phi,
+                                    S = num_spp,
+                                    P = num_patches)
   
   recover_sens[a,17] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
   recover_sens[a,18] <- a #metacommunity ID
@@ -1015,8 +782,8 @@ recover_max_plot <- ggplot(data = recover_sens, mapping = aes(x = recover_Max, y
   geom_smooth(method = 'lm')+
   theme_classic()+
   xlab("Max recovery rate")+
-  ylab("Landscape R0")+
-  ylim(0,1)
+  ylab("Landscape R0")
+#  ylim(0,1)
 recover_max_plot  
 
 recover_min_plot <- ggplot(data = recover_sens, mapping = aes(x = recover_Min, y = LandscapeR0))+
@@ -1024,8 +791,8 @@ recover_min_plot <- ggplot(data = recover_sens, mapping = aes(x = recover_Min, y
   geom_smooth(method = 'loess')+
   theme_classic()+
   xlab("Min recovery rate")+
-  ylab("Landscape R0")+
-  ylim(0,1)
+  ylab("Landscape R0")
+#  ylim(0,1)
 recover_min_plot  
 
 recover_range_plot <- ggplot(data = recover_sens, mapping = aes(x = recover_range, y = LandscapeR0))+
@@ -1034,7 +801,7 @@ recover_range_plot <- ggplot(data = recover_sens, mapping = aes(x = recover_rang
   theme_classic()+
   xlab("Recovery range")+
   ylab("Landscape R0")+
-  ylim(0,1)
+#  ylim(0,1)
 recover_range_plot  
 
 recover_plots <- (recover_max_plot + recover_min_plot) / recover_range_plot
@@ -1186,67 +953,7 @@ for (a in 1:length(meta_comm_list)) {
   I <- as.matrix(I)
   N <- as.matrix(N)
   N_meta <- colSums(N)
-  phi <- phi #get dispersal rate
-  FI_matrix <- matrix(nrow = num_patches, ncol = num_spp)
-  r0_species_patch <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc R0
-  b <- matrix(nrow = num_patches, ncol = num_spp) #create empty matrix, later will calc b
-  Prev_I <- matrix(nrow = num_patches, ncol = num_spp)    
-  Prev_S  <- matrix(nrow = num_patches, ncol = num_spp)
-  # Loop through patches and species
-  for (p in 1:num_patches) {
-    
-    # Skip this patch if any S, I, or N values are NA
-    if (any(is.na(S[p, ])) || any(is.na(I[p, ])) || any(is.na(N[p, ]))) {
-      next
-    }
-    
-    total_pop_patch <- sum(N[p, ], na.rm = TRUE) # total population in patch p
-    
-    for (i in 1:num_spp) {
-      
-      # Skip this species if values are NA or total population is zero
-      if (is.na(N[p, i]) || total_pop_patch == 0) {
-        next
-      }
-      
-      birth_rate <- birth[i] * N[p, i]  # birth rate for species i in patch p
-      prop_spp <- N[p, i] / total_pop_patch  # proportion of this species in patch
-      # print(prop_spp)
-      b[p, i] <- v[i] + d[i]  # total loss rate
-      r0_biased <- beta[i, i] / b[p, i]  # baseline R0
-      
-      # Calculate prevalence of infection and FI_matrix
-      for (j in 1:num_spp) {
-        
-        if (N[p, j] > 0) {
-          Prev_I[p, j] <- I[p, j] / N[p, j]
-        } else {
-          Prev_I[p, j] <- 0
-        }
-        
-        if (N[p, i] > 0) {
-          Prev_S[p, i] <- S[p, i] / N[p, i]
-        } else {
-          Prev_S[p, i] <- 0
-        }
-        
-        if (N[p, i] > 0 && Prev_S[p, i] > 0) {
-          FI_matrix[p, j] <- (beta[i, j] / beta[i, i]) *
-            (N[p, j] / N[p, i]) *
-            (Prev_I[p, j] / Prev_S[p, i])
-        } else {
-          FI_matrix[p, j] <- 0
-        }
-      }
-      # print(FI_matrix)
-      # Community context adjustment
-      sum_FI <- sum(FI_matrix[p, ], na.rm = TRUE)
-      community_context <- ifelse(sum_FI > 0, 1 / (prop_spp * sum_FI), 0)
-      # print(community_context)
-      # Save R0 values
-      r0_species_patch[p, i] <- r0_biased * community_context
-    }
-  }
+  b <- v+d
   # Calculate variables
   disperse_sens[a,1] <- sum(N) #total abundance
   #abdunance of each species
@@ -1263,13 +970,14 @@ for (a in 1:length(meta_comm_list)) {
   disperse_sens[a,16] <- disperse_sens[a,7]/disperse_sens[a,8] #beta diversity / total abundance
   
   #calculate landscape R0
-  r0_landscape <- landscape_R0(R0_spps = r0_species_patch,
-                               Cmat = connect,
-                               b = b,
-                               beta = beta,
-                               phi = phi,
-                               S = num_spp,
-                               P = num_patches)
+  r0_landscape <- landscape_R0_freq(beta = beta,
+                                    I = I,
+                                    N = N,
+                                    Cmat = connect,
+                                    b = b,
+                                    phi = phi,
+                                    S = num_spp,
+                                    P = num_patches)
   
   disperse_sens[a,17] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
   disperse_sens[a,18] <- a #metacommunity ID
@@ -1283,8 +991,7 @@ disperse_max_plot <- ggplot(data = disperse_sens, mapping = aes(x = disperse_Max
   geom_smooth(method = 'lm')+
   theme_classic()+
   xlab("Max dispersal rate")+
-  ylab("Landscape R0")+
-  ylim(0,1)
+  ylab("Landscape R0")
 disperse_max_plot  
 
 disperse_min_plot <- ggplot(data = disperse_sens, mapping = aes(x = disperse_Min, y = LandscapeR0))+
@@ -1292,8 +999,7 @@ disperse_min_plot <- ggplot(data = disperse_sens, mapping = aes(x = disperse_Min
   geom_smooth(method = 'loess')+
   theme_classic()+
   xlab("Min dispersal rate")+
-  ylab("Landscape R0")+
-  ylim(0,1)
+  ylab("Landscape R0")
 disperse_min_plot  
 
 disperse_range_plot <- ggplot(data = disperse_sens, mapping = aes(x = disperse_range, y = LandscapeR0))+
@@ -1301,8 +1007,7 @@ disperse_range_plot <- ggplot(data = disperse_sens, mapping = aes(x = disperse_r
   geom_smooth(method = 'lm')+
   theme_classic()+
   xlab("Disperse range")+
-  ylab("Landscape R0")+
-  ylim(0,1)
+  ylab("Landscape R0")
 disperse_range_plot  
 
 disperse_plots <- (disperse_max_plot + disperse_min_plot)/disperse_range_plot
