@@ -1,0 +1,171 @@
+---
+title: "Report05.03.2025"
+author: "Reed Scott"
+format: html
+editor: visual
+---
+
+# Introduction
+
+In the last update on this project we had agreed upon a method for simulating the species richness \~ abundance relationship when building our metacommunities. I have simulated 100 meta-communities for us to explore using the rules and parameters we have previously established
+
+In the most recent addition to our manuscript (Metadisease1.3, sent in the same email as this document) I define T and $\Sigma$ (called R and B Mark's 2020 supplementals). To start, here I provide the code necessary to calculate the T and $\Sigma$ matrices. I then show how I believe these functions should be used in our simulated metacommunities to calculate R~0,L~ . My goal is that, assuming you approve of these methods, we can run simulation, calculate R~0L~ for each metacommunity and explore the results.
+
+# The Functions:
+
+## The R (or T) matrix
+
+To build the R matrix, we require 5 pieces of information: $\beta$, I, N, S, and P. S defines the number of possible species in the system and P defines the number of patches in the system. $\beta$ is an S x S matrix define transmission rates: $\beta_{ss}$ is intraspecific transmission while $\beta_{si}$ is interspecific transmission. I is an S x P matrix defining the abundance of infectious individuals in each patch. N is also an S x P matrix, but defines the total abundance of each species in each patch. Based on the method of calculating T and T~P~ we can calculate R using the following code:
+
+```{r Def build R}
+build_R_with_data_freq <- function(beta,I,N,S,P) {
+  fullR <- matrix(data = 0, nrow = P*S, ncol = P*S)
+  for (p in 1:P) {
+    Rmat <- matrix(data = 0, nrow = S, ncol = S)
+    for (s in 1:S){
+      for (i in 1:S){
+        Rmat[i,s] <- (beta[s,i]*I[p,i])/sum(N[p,])
+      }
+    }
+    start <- ifelse(p == 1, p,(S*p)-(S-1))
+    stop <- start + S - 1
+    fullR[start:stop, start:stop] <- Rmat
+  }
+  return(fullR)
+}
+```
+
+Here, we are defining the full matrix R, of "fullR" as a matrix with dimensions {P\*S,P\*S}. We then define a submatrix Rmat, for each patch where $Rmat_{i,s} = (\beta_{i,s}*I_{p,i})/\sum(N_s)$ where $\beta_{i,s}$ is the transmission coefficient between infectious individuals of species i and susceptible individuals of species s.
+
+## The B (or $\Sigma$ matrix)  
+
+While the R matrix had to change its calculations compared to Wilber 2020, the B matrix remains largely unchanged. In the Metadisease1.3 we define 2 submatrices of the B matrix, D and E (originally defined in Mark's 2020 supplementals). In addition to parameters S and P we also define the B matrix using Cmat (the matrix of connectivity between patches), $\phi$ (the dispersal rate of a species), and b (the loss rate of the disease, defined by recovery + death).
+
+```{r Def build B}
+build_B_with_data <- function(Cmat, phi, b, S, P) {
+  Cmat_axis <- colSums(Cmat)
+  diag_list <- vector("list",P^2)
+  diag_list_names <- array(dim = c(sqrt(length(diag_list)), sqrt(length(diag_list))))
+  for (p in 1:P) { #loop over columns
+    for (j in 1:P) { #loop over rows
+      diag_list_names[j,p] <- paste(p,j,sep="_")
+    }
+  }
+  diag_list_names <- as.vector(diag_list_names)
+  names(diag_list) <- diag_list_names
+  for (p in 1:P) { #loop over columns
+    for (j in 1:P) { #loop over rows
+      tZ <- matrix(0,nrow = S, ncol = S)
+      new_diag <- array(dim = S)
+      new_diag <- if(p == j){
+        #build the diagonal matrix
+        (-1)*b - phi*Cmat_axis[p]
+      } else{
+        phi*Cmat[j,p]
+      }
+      diag(tZ) <- new_diag
+      x <- paste(p,j,sep="_")
+      diag_list[[x]] <- tZ 
+    }
+  }
+  diag_matrix <- matrix(diag_list, nrow = P, ncol = P)
+  tB <- list()
+  for (j in 1:P) {
+    tB[[j]] <- matrix(data = unlist(diag_matrix[j,]), nrow = S*P, ncol = S, byrow = T) #looks like this worked!
+  }
+  
+  B <- do.call(cbind, tB[1:P]) #need to determine if this is what B should look like
+  return(B) 
+}
+```
+
+I'd say the most important thing to pay attention to is the if...else statement. If p = j, then we are along the diagonal of the matrix and thus use the formula $(-1)b - \phi*CmatAxis[p]$ . If we are off the diagonal we use the formula $\phi * Cmat$.
+
+## The K matrix
+
+The final product we need to calculate R~0,L~ is the matrix K. this is defined by
+
+$$
+K = max eig (R*-B^{-1})
+$$
+
+We already have the process for defining R and B. Now we just need to use matrix multiplication to get K.
+
+```{r Def K}
+landscape_R0_freq <- function(beta,I,N,Cmat,b, phi,S,P){
+  R <- build_R_with_data_freq(beta = beta,
+                         I = I,
+                         N = N,
+                         S = S,
+                         P = P)
+  B <- build_B_with_data(Cmat = Cmat,
+                         phi = phi,
+                         b = b,
+                         S = S,
+                         P = P)
+  K <- R %*% solve(-1*B)
+  return(list(K = K, R = R, B = B))
+}
+```
+
+## An example
+
+Let's take an example and see if it works as expected. We'll define a 2 species, 2 patch system. We'll randomly define values for b, $\phi$, $\beta$, and N. Well define S (abundance of susceptible individuals) as a proportion of N and I = N-S. With all of that defined we can then run each function and see if they work.
+
+```{r}
+Spp <- 2 #number of species
+Patches <- 2 #number of patches
+b <- rnorm(n = Spp, mean = 1, sd = 0.1)
+phi <- rnorm(n = 2, mean = 0.5, sd = 0.1)
+#transmission
+beta <- matrix(data = NA, nrow = Spp, ncol = Spp)
+for (i in 1:nrow(beta)) {
+  for (j in 1:ncol(beta)) {
+    beta[i,j] <- ifelse(i == j, rbeta(n = 1, shape1 = 2, shape2 = 10),rbeta(n = 1, shape1 = 1, shape2 = 1))
+  }
+}
+#connectivity
+Cmat <- matrix(data = rnorm(n = Patches^2, mean = 0.5, sd = 0.1),
+            nrow = Patches,
+            ncol = Patches)
+N <- matrix(rep(NA,4), nrow = 2, ncol = 2)
+N[,1] <- runif(2, min = 10, max = 20)
+for(i in 1:2){
+  N[i,2] <- runif(1, min = 1, max = N[i,1])
+}
+S <- N*c(0.8,0.95)
+I <- N - S
+r_freq <- build_R_with_data_freq(beta = beta,
+                                 I = I,
+                                 N = N,
+                                 S = Spp,
+                                 P = Patches)
+B <- build_B_with_data(Cmat = Cmat,
+                       phi = phi,
+                       b = b, 
+                       S = Spp,
+                       P = Patches)
+# Not currently working. Need to probably adjust B matrix
+K_freq <- landscape_R0_freq(beta = beta,
+                            I = I,
+                            N = N,
+                            Cmat = Cmat,
+                            b = b,
+                            phi = phi,
+                            S = Spp,
+                            P = Patches)
+```
+
+Now let's check each and see if they worked:
+
+```{r matrices}
+r_freq
+B
+K_freq[[1]]
+```
+
+Looks like about what I'd expect! And if we take the max eigenvalue of that, that should be our R~0,L~
+
+# Applying functions to our metacommunities
+
+Work on this tomorrow...
