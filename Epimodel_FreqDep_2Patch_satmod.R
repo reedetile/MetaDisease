@@ -112,8 +112,8 @@ species_chara <- data.frame(Species = Species,
                             alpha = alpha,
                             R0 = R0,
                             K = K,
-                            Susceptible = K*sus,
-                            Infectious = K*Infectious)
+                            Susceptible = Susceptible,
+                            Infectious = Infectious)
 ### Transmission coefficient
 # beta should be higher for intraspecific transmission than interspecific
 #inter-specific should have higher rate from more competent species
@@ -122,7 +122,7 @@ species_chara <- data.frame(Species = Species,
 #Ex: P Regilla will have the same transmission to A Boreas, T. Taricha... R Draytonii
 # We are using a beta distribution b/c that is the best for the probability scale
 # we need to assign probabilities to each species
-species_chara <- species_chara %>% mutate(beta_intra = (R0*K*(death+alpha))/(Susceptible*Infectious))
+species_chara <- species_chara %>% mutate(beta_intra = (R0*K*(death+alpha))/((Susceptible*K)*(Infectious*K)))
 #species_chara <- species_chara %>% mutate(beta_intra = (R0*(death+alpha)))
 
 closeness <- 0.5
@@ -250,8 +250,8 @@ colnames(result) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT","RDRA
                        "BetaDiversity","Gamma_diversity","LandscapeR0", "MetaCommID")
 
 for (a in 1:length(meta_comm_list)) {
-  S <- meta_comm_list[[a]][,1:6]*c(0.5,0.6,0.70,0.8,0.80,.9) #value of susceptibles
-  I <- meta_comm_list[[a]][,1:6] - S #value of infecteds
+  S <- meta_comm_list[[a]][,1:6]*species_chara$Susceptible #value of susceptibles
+  I <- meta_comm_list[[a]][,1:6]*species_chara$Infectious#value of infecteds
   N <- S+I #total pop of a patch
   S <- as.matrix(S)
   I <- as.matrix(I)
