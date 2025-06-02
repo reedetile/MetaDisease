@@ -66,7 +66,7 @@ build_R_with_data_freq <- function(beta,I,N,S,P) {
     Rmat <- matrix(data = 0, nrow = S, ncol = S)
     for (s in 1:S){
       for (i in 1:S){
-        Rmat[i,s] <- (beta[s,i]*I[p,i])/sum(N[p,])
+        Rmat[s,i] <- (beta[s,i]*I[p,i])/sum(N[p,])
       }
     }
     start <- ifelse(p == 1, p,(S*p)-(S-1))

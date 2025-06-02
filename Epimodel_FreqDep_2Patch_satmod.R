@@ -9,6 +9,7 @@ library(tidyverse)
 library(ggplot2)
 library(RColorBrewer)
 library(patchwork)
+library(truncdist)
 set.seed(1234)
 
 main.wd <- getwd()
@@ -68,11 +69,51 @@ v
 #Determining dispersal rate
 phi <- runif(6) # need to check simulation for determining if diserpsal matters
 # alpha <- #disease specific mortality
+mass <- c(0.00035, #0.35 g, 0.00035 kg
+          0.0103, # 10.3 g, 0.0103 kg
+          0.0150, # 15.0 g, 0.0150 kg 
+          0.0230, # 23.0 g, 0.0230 kg
+          0.0380, # 38.0 g, 0.0380 kg
+          0.0320) # 32.0 g, 0.0320 kg
+
+alpha <- c(0.004320053, # PREG McMahon 2023
+           NA,
+           NA,
+           0.007167381, # ABOR Carey 2006 
+           0, # RCAT Daszak 2004
+           0) # RDRAY Padgett Flohr 2008
+
+alpha[2] <- runif(1, alpha[1], alpha[4])
+alpha[3] <- runif(1, alpha[2], alpha[4])
+
+
+
+R0 <- rtrunc(n = 6, spec = "gamma", a = 0, b = 2, shape = 2)
+R0 <- sort(R0, decreasing = T)
+## To plot what the distribution looks like
+# x <- seq(0,2, by = 0.1)
+# plot(x,dtrunc(x, spec = "gamma", a = 0, b = 2, shape =2))
+K <- c(20,16,15,7,4,2) #this is just an example, but k is the abundance at each rank (i think?)
+#Prop that will be susceptible
+Infectious <- c(0.67, # Reeder 2012
+         0.41, # Jost 2025
+         0.4, # Jost 2025
+         0.4, # Peralta Garcia 2018
+         0.192, # Huss 2019
+         0.84) #Adams 2022
+Susceptible <- 1 - sus #prop of pop that will be infected
+
 species_chara <- data.frame(Species = Species,
                             birth = birth, 
                             death = d, 
                             recovery = v, 
-                            dispersal = phi)
+                            dispersal = phi,
+                            mass = mass,
+                            alpha = alpha,
+                            R0 = R0,
+                            K = K,
+                            Susceptible = K*sus,
+                            Infectious = K*Infectious)
 ### Transmission coefficient
 # beta should be higher for intraspecific transmission than interspecific
 #inter-specific should have higher rate from more competent species
@@ -81,101 +122,119 @@ species_chara <- data.frame(Species = Species,
 #Ex: P Regilla will have the same transmission to A Boreas, T. Taricha... R Draytonii
 # We are using a beta distribution b/c that is the best for the probability scale
 # we need to assign probabilities to each species
-x <- seq(0,1,length = 100)
-trans_rate <- function(n = 1,x = seq(0,1,length = 100),a,b){
-  trans <- rbeta(n = n, shape1 = a, shape2 = b)
-  plot(x = seq(0,1, length.out = 100), y = dbeta(x, shape1 = a, shape2 = b))
-  return(trans)
-}
+species_chara <- species_chara %>% mutate(beta_intra = (R0*K*(death+alpha))/(Susceptible*Infectious))
+#species_chara <- species_chara %>% mutate(beta_intra = (R0*(death+alpha)))
 
+closeness <- 0.5
+beta <- matrix(nrow = num_spp, ncol = num_spp)
 
-# PREG
-intra_PREG <- trans_rate(a = 4,b = 2)
-inter_PREG <- intra_PREG*0.85 #trans_rate(a = 4, b = 2.5)
-
-plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2), ylab = "density", type = 'l', col = "red")
-lines(x=x, dbeta(x, shape1 = 4, shape2 = 2.5), col = "blue")
-
-
-# TGRAN
-intra_TGRAN <- trans_rate(a = 4, b = 2.25)
-inter_TGRAN <- intra_TGRAN*0.85 #trans_rate(a = 4, b = 2.5)
-
-plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.25), ylab = "density", type = 'l', col = "red")
-lines(x=x, dbeta(x, shape1 = 4, shape2 = 2.5), col = "blue")
-
-#TTOR
-intra_TTOR <- trans_rate(a = 3, b = 2.5)
-inter_TTOR <- intra_TTOR*0.85 #trans_rate(a = 3, b = 2.75)
-
-plot(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.5), ylab = "density", type = 'l', col = "red")
-lines(x=x, dbeta(x, shape1 = 3, shape2 = 2.75), col = "blue")
-
-#ABOR
-intra_ABOR <- trans_rate(a = 2.5, b = 2.75)
-inter_ABOR <- intra_ABOR*0.85 #trans_rate(a = 2.5, b = 3.0)
-
-plot(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 2.75), ylab = "density", type = 'l', col = "red")
-lines(x=x, dbeta(x, shape1 = 2.5, shape2 = 3.0), col = "blue")
-
-#RCAT
-intra_RCAT <- trans_rate(a = 2.0, b = 3.0)
-inter_RCAT <- intra_RCAT*0.85 #trans_rate(a = 2.0, b = 3.25)
-
-plot(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.0), ylab = "density", type = 'l', col = "red")
-lines(x=x, dbeta(x, shape1 = 2.0, shape2 = 3.25), col = "blue")
-
-#RDRAY
-intra_RDRAY <- trans_rate(a = 1.5, b = 3.25)
-inter_RDRAY <- intra_RDRAY*0.85#trans_rate(a = 1.5, b = 3.5)
-
-plot(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.25), ylab = "density", type = 'l', col = "red")
-lines(x=x, dbeta(x, shape1 = 1.5, shape2 = 3.5), col = "blue")
-
-#let's plot all the intraspecific trans rate just to see
-plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.0), ylab = "density", type = 'l', col = "black") #PREG
-lines(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.25), col = "red") #TGRAN
-lines(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.5), col = "blue") #TTOR
-lines(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 2.75), col = "cyan4") #ABOR
-lines(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.0), col = "blueviolet") #RCAT
-lines(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.25), col = "deeppink") #RDRAY
-
-#let's plot all the interspecific trans rate just to see
-plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.5), ylab = "density", type = 'l', col = "black") #PREG
-lines(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.5), col = "red") #TGRAN
-lines(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.75), col = "blue") #TTOR
-lines(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 3.0), col = "cyan4") #ABOR
-lines(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.25), col = "blueviolet") #RCAT
-lines(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.5), col = "deeppink") #RDRAY
-
-
-
-
-beta <- matrix(data = NA, nrow = num_spp, ncol = num_spp)
-for (i in 1:nrow(beta)) {
-  for (j in 1:ncol(beta)) {
-    beta[i,j] <- if(i == 1 & j == 1){
-      intra_PREG}else if(i != 1 & j == 1){
-        inter_PREG} else if(i == 2 & j == 2){
-          intra_TGRAN} else if(i != 2 & j == 2){
-            inter_TGRAN} else if(i == 3 & j == 3){
-              intra_TTOR} else if(i != 3 & j == 3){
-                inter_TTOR} else if(i == 4 & j == 4){
-                  intra_ABOR} else if(i != 4 & j == 4){
-                    inter_ABOR} else if(i == 5 & j == 5){
-                      intra_RCAT} else if(i != 5 & j ==5){
-                        inter_RCAT} else if(i == 6 & j == 6){
-                          intra_RDRAY} else if(i != 6 & j == 6){
-                            inter_RDRAY}
+for (s in 1:num_spp) {
+  for (i in 1:num_spp) {
+    beta[s,i] <- if(s == i){
+      species_chara[s,12]} else{
+        closeness * ((species_chara[s,12]*species_chara[i,12])/2)}
   }
+  
 }
-beta #assumes that beta original is transmission over season. new beta is transmission
+
+# x <- seq(0,1,length = 100)
+# trans_rate <- function(n = 1,x = seq(0,1,length = 100),a,b){
+#   trans <- rbeta(n = n, shape1 = a, shape2 = b)
+#   plot(x = seq(0,1, length.out = 100), y = dbeta(x, shape1 = a, shape2 = b))
+#   return(trans)
+# }
+# 
+# 
+# # PREG
+# intra_PREG <- trans_rate(a = 4,b = 2)
+# inter_PREG <- intra_PREG*0.85 #trans_rate(a = 4, b = 2.5)
+# 
+# plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2), ylab = "density", type = 'l', col = "red")
+# lines(x=x, dbeta(x, shape1 = 4, shape2 = 2.5), col = "blue")
+# 
+# 
+# # TGRAN
+# intra_TGRAN <- trans_rate(a = 4, b = 2.25)
+# inter_TGRAN <- intra_TGRAN*0.85 #trans_rate(a = 4, b = 2.5)
+# 
+# plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.25), ylab = "density", type = 'l', col = "red")
+# lines(x=x, dbeta(x, shape1 = 4, shape2 = 2.5), col = "blue")
+# 
+# #TTOR
+# intra_TTOR <- trans_rate(a = 3, b = 2.5)
+# inter_TTOR <- intra_TTOR*0.85 #trans_rate(a = 3, b = 2.75)
+# 
+# plot(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.5), ylab = "density", type = 'l', col = "red")
+# lines(x=x, dbeta(x, shape1 = 3, shape2 = 2.75), col = "blue")
+# 
+# #ABOR
+# intra_ABOR <- trans_rate(a = 2.5, b = 2.75)
+# inter_ABOR <- intra_ABOR*0.85 #trans_rate(a = 2.5, b = 3.0)
+# 
+# plot(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 2.75), ylab = "density", type = 'l', col = "red")
+# lines(x=x, dbeta(x, shape1 = 2.5, shape2 = 3.0), col = "blue")
+# 
+# #RCAT
+# intra_RCAT <- trans_rate(a = 2.0, b = 3.0)
+# inter_RCAT <- intra_RCAT*0.85 #trans_rate(a = 2.0, b = 3.25)
+# 
+# plot(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.0), ylab = "density", type = 'l', col = "red")
+# lines(x=x, dbeta(x, shape1 = 2.0, shape2 = 3.25), col = "blue")
+# 
+# #RDRAY
+# intra_RDRAY <- trans_rate(a = 1.5, b = 3.25)
+# inter_RDRAY <- intra_RDRAY*0.85#trans_rate(a = 1.5, b = 3.5)
+# 
+# plot(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.25), ylab = "density", type = 'l', col = "red")
+# lines(x=x, dbeta(x, shape1 = 1.5, shape2 = 3.5), col = "blue")
+# 
+# #let's plot all the intraspecific trans rate just to see
+# plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.0), ylab = "density", type = 'l', col = "black") #PREG
+# lines(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.25), col = "red") #TGRAN
+# lines(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.5), col = "blue") #TTOR
+# lines(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 2.75), col = "cyan4") #ABOR
+# lines(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.0), col = "blueviolet") #RCAT
+# lines(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.25), col = "deeppink") #RDRAY
+# 
+# #let's plot all the interspecific trans rate just to see
+# plot(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.5), ylab = "density", type = 'l', col = "black") #PREG
+# lines(x = x,dbeta(x = x,shape1 = 4,shape2 = 2.5), col = "red") #TGRAN
+# lines(x = x,dbeta(x = x,shape1 = 3,shape2 = 2.75), col = "blue") #TTOR
+# lines(x = x,dbeta(x = x,shape1 = 2.5,shape2 = 3.0), col = "cyan4") #ABOR
+# lines(x = x,dbeta(x = x,shape1 = 2.0,shape2 = 3.25), col = "blueviolet") #RCAT
+# lines(x = x,dbeta(x = x,shape1 = 1.5,shape2 = 3.5), col = "deeppink") #RDRAY
+# 
+# 
+# 
+# 
+# beta <- matrix(data = NA, nrow = num_spp, ncol = num_spp)
+# for (i in 1:nrow(beta)) {
+#   for (j in 1:ncol(beta)) {
+#     beta[i,j] <- if(i == 1 & j == 1){
+#       intra_PREG}else if(i != 1 & j == 1){
+#         inter_PREG} else if(i == 2 & j == 2){
+#           intra_TGRAN} else if(i != 2 & j == 2){
+#             inter_TGRAN} else if(i == 3 & j == 3){
+#               intra_TTOR} else if(i != 3 & j == 3){
+#                 inter_TTOR} else if(i == 4 & j == 4){
+#                   intra_ABOR} else if(i != 4 & j == 4){
+#                     inter_ABOR} else if(i == 5 & j == 5){
+#                       intra_RCAT} else if(i != 5 & j ==5){
+#                         inter_RCAT} else if(i == 6 & j == 6){
+#                           intra_RDRAY} else if(i != 6 & j == 6){
+#                             inter_RDRAY}
+#   }
+# }
+# beta #assumes that beta original is transmission over season. new beta is transmission
 #over a single day (or time step)
+#other way to measure beta
+# beta_intra <- 2.47*10^(-2)*((species_chara$alpha/species_chara$death)
+#                              +species_chara$recovery/species_chara$death)*species_chara$mass^(0.260)
 
 #### meta-community characteristics
 #Connectivity of patches
-stay <- 0.75#rbeta(n = 1, shape1 = 4, shape2 = 2) #probability individuals stay in a patch?
-go <- 0.25#rbeta(n = 1, shape1 = 1.5, shape2 = 3.5) # probability individuals move
+stay <- rbeta(n = 1, shape1 = 4, shape2 = 2) #probability individuals stay in a patch?
+go <- rbeta(n = 1, shape1 = 1.5, shape2 = 3.5) # probability individuals move
 c <- matrix(data = NA,
             nrow = num_patches, 
             ncol = num_patches)
@@ -200,7 +259,7 @@ for (a in 1:length(meta_comm_list)) {
   N_meta <- colSums(N)
   phi <- phi #get dispersal rate
   b <- v + d  # total loss rate
-  alph <- rowSums(N)
+  alpha_div <- rowSums(N)
   
   # Calculate variables
   result[a,1] <- sum(N) #total abundance
@@ -246,21 +305,6 @@ ggplot(data = result, mapping = aes(x = TotalAbundance, y = LandscapeR0))+
 
 #want to make sure this is still following a sat curve
 ggplot(data = result, mapping = aes(x = Gamma_diversity, y = TotalAbundance))+
-  geom_point()+
-  geom_smooth()+
-  theme_classic()
-
-
-# okay so at this point
-
-# what if we correct for abundance?
-ggplot(data = result, mapping = aes(x = Beta_relative, y = LandscapeR0))+
-  geom_point()+
-  geom_smooth()+
-  theme_classic()
-
-result$Gamma_relative <- result$Gamma_diversity/result$TotalAbundance
-ggplot(data = result, mapping = aes(x = Gamma_relative, y = LandscapeR0))+
   geom_point()+
   geom_smooth()+
   theme_classic()
