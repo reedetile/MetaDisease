@@ -29,8 +29,8 @@ S <- c(0.83, #PREG
 S[4] <- runif(n = 1, min = S[5], max = S[3])
 #an array of probability values for the occurence of each spp
 #what if I over thought this, and I can just assign an occupancy probability?
-K <- c(20,16,15,7,4,2) #this is just an example, but k is the abundance at each rank (i think?)
-max_abund <- 65 # a somewhat arbitrarily decided upon max abundance
+K <- c(1000, 750, 700, 800, 400, 300)
+max_abund <- 2000 # a somewhat arbitrarily decided upon max abundance
 #this could later become some sort of rnorm(). EX rnorm(n = 1, mean = 10, sd = 1). This provides a starting abdunance for each spp if present
 
 ### Creating a meta-community###
@@ -92,45 +92,45 @@ max_abund <- 65 # a somewhat arbitrarily decided upon max abundance
 # }
 
 # I THINK this is a better way to determine abundance
-
-meta_comm_list <- vector("list",N)
-beta_list <- vector("list", N)
-nestedness_list <- vector("list", N)
-for(n in 1:N){
-  meta_comm <- data.frame(matrix(NA, nrow = num_patches, ncol = num_spp))
-  for(i in 1:nrow(meta_comm)){
-    for(j in 1:ncol(meta_comm)){
-      #determine occurrence and abundance of spp 1
-      meta_comm[i,1] <- rbinom(n = 1, size = 1, prob = S[1])
-      meta_comm[i,1] <- ifelse(meta_comm[i,1] == 1, K[1],0)
-      
-      #determine occurrence and abundance of spp2
-      meta_comm[i,2] <- rbinom(n = 1, size = 1, prob = S[2])
-      meta_comm[i,2] <- ifelse(meta_comm[i,2] == 1, K[2],0)
-      
-      #determine occurrence and abundance of spp 3
-      meta_comm[i,3] <- rbinom(n = 1, size = 1, prob = S[3])
-      meta_comm[i,3] <- ifelse(meta_comm[i,3] == 1, K[3],0)
-      
-      #determine occurrence and abundance of spp 4
-      meta_comm[i,4] <- rbinom(n = 1, size = 1, prob = S[4])
-      meta_comm[i,4] <- ifelse(meta_comm[i,4] == 1, K[4],0)
-      
-      #determine occurrence and abundance of spp 5
-      meta_comm[i,5] <- rbinom(n = 1, size = 1, prob = S[5])
-      meta_comm[i,5] <- ifelse(meta_comm[i,5] == 1, K[5],0)
-      
-      #determine occurrence and abundance of spp 6
-      meta_comm[i,6] <- rbinom(n = 1, size = 1, prob = S[6])
-      meta_comm[i,6] <- ifelse(meta_comm[i,6] == 1, K[6],0)
-    }
-  }
-  meta_comm$Patch <- c('Patch1','Patch2')
-  colnames(meta_comm) <- c('Spp1','Spp2','Spp3','spp4','spp5','Spp6','PatchID')
-  beta_list[[n]] <- mean(betadiver(meta_comm[,1:6], method = 'w'))
-  nestedness_list[[n]] <- nestedtemp(comm = meta_comm[,1:6])[7]
-  meta_comm_list[[n]] <- meta_comm
-}
+# 
+# meta_comm_list <- vector("list",N)
+# beta_list <- vector("list", N)
+# nestedness_list <- vector("list", N)
+# for(n in 1:N){
+#   meta_comm <- data.frame(matrix(NA, nrow = num_patches, ncol = num_spp))
+#   for(i in 1:nrow(meta_comm)){
+#     for(j in 1:ncol(meta_comm)){
+#       #determine occurrence and abundance of spp 1
+#       meta_comm[i,1] <- rbinom(n = 1, size = 1, prob = S[1])
+#       meta_comm[i,1] <- ifelse(meta_comm[i,1] == 1, K[1],0)
+#       
+#       #determine occurrence and abundance of spp2
+#       meta_comm[i,2] <- rbinom(n = 1, size = 1, prob = S[2])
+#       meta_comm[i,2] <- ifelse(meta_comm[i,2] == 1, K[2],0)
+#       
+#       #determine occurrence and abundance of spp 3
+#       meta_comm[i,3] <- rbinom(n = 1, size = 1, prob = S[3])
+#       meta_comm[i,3] <- ifelse(meta_comm[i,3] == 1, K[3],0)
+#       
+#       #determine occurrence and abundance of spp 4
+#       meta_comm[i,4] <- rbinom(n = 1, size = 1, prob = S[4])
+#       meta_comm[i,4] <- ifelse(meta_comm[i,4] == 1, K[4],0)
+#       
+#       #determine occurrence and abundance of spp 5
+#       meta_comm[i,5] <- rbinom(n = 1, size = 1, prob = S[5])
+#       meta_comm[i,5] <- ifelse(meta_comm[i,5] == 1, K[5],0)
+#       
+#       #determine occurrence and abundance of spp 6
+#       meta_comm[i,6] <- rbinom(n = 1, size = 1, prob = S[6])
+#       meta_comm[i,6] <- ifelse(meta_comm[i,6] == 1, K[6],0)
+#     }
+#   }
+#   meta_comm$Patch <- c('Patch1','Patch2')
+#   colnames(meta_comm) <- c('Spp1','Spp2','Spp3','spp4','spp5','Spp6','PatchID')
+#   beta_list[[n]] <- mean(betadiver(meta_comm[,1:6], method = 'w'))
+#   nestedness_list[[n]] <- nestedtemp(comm = meta_comm[,1:6])[7]
+#   meta_comm_list[[n]] <- meta_comm
+# }
 
 # nestedness <- unlist(x = nestedness_list)
 # beta <- unlist(x = beta_list)
@@ -152,12 +152,12 @@ for(n in 1:N){
   for(c in 1:num_patches){
     alpha <- as.numeric(sample(1:6, size = 1, replace = T))
     #need to create a relationship between species richness and abundance
-    a <- 10
-    b <- 4
+    a <- 1000
+    b <- 400
     error <- rnorm(length(alpha), mean = 0, sd = 1)
     abundance <- a*log(b*alpha)+error
     R <- alpha
-    KCOM <- max_abund/(1+3*exp(-0.05*(R)))
+    KCOM <- max_abund/(1+50*exp(-0.20*(R+500)))
     KS <- KCOM/abundance
     meta_comm[[c]] <- if(abundance >= KCOM){
       c(K[1:alpha]*KS,rep(0, num_spp - alpha))} else{

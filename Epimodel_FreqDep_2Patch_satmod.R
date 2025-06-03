@@ -101,7 +101,7 @@ Infectious <- c(0.67, # Reeder 2012
          0.4, # Peralta Garcia 2018
          0.192, # Huss 2019
          0.84) #Adams 2022
-Susceptible <- 1 - sus #prop of pop that will be infected
+Susceptible <- 1 - Infectious #prop of pop that will be infected
 
 species_chara <- data.frame(Species = Species,
                             birth = birth, 
@@ -122,10 +122,10 @@ species_chara <- data.frame(Species = Species,
 #Ex: P Regilla will have the same transmission to A Boreas, T. Taricha... R Draytonii
 # We are using a beta distribution b/c that is the best for the probability scale
 # we need to assign probabilities to each species
-species_chara <- species_chara %>% mutate(beta_intra = (R0*K*(death+alpha))/((Susceptible*K)*(Infectious*K)))
+species_chara <- species_chara %>% mutate(beta_intra = (R0*sum(K)*(death+recovery))/(1-alpha))
 #species_chara <- species_chara %>% mutate(beta_intra = (R0*(death+alpha)))
 
-closeness <- 0.5
+closeness <- 0.05 #based on mihaljevic 2014
 beta <- matrix(nrow = num_spp, ncol = num_spp)
 
 for (s in 1:num_spp) {
@@ -292,11 +292,11 @@ for (a in 1:length(meta_comm_list)) {
 # plot beta X R0
 ggplot(data = result, mapping = aes(x = BetaDiversity, y = LandscapeR0))+
   geom_point()+
-  geom_smooth()+
+  geom_smooth(method = 'lm')+
   theme_classic()
 ggplot(data = result, mapping = aes(x = Gamma_diversity, y = LandscapeR0))+
   geom_point()+
-  geom_smooth()+
+  geom_smooth(method = "lm")+
   theme_classic()
 ggplot(data = result, mapping = aes(x = TotalAbundance, y = LandscapeR0))+
   geom_point()+

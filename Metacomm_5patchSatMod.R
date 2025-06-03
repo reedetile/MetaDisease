@@ -25,8 +25,8 @@ S <- c(0.83, #PREG
 S[4] <- runif(n = 1, min = S[5], max = S[3])
 #an array of probability values for the occurence of each spp
 #what if I over thought this, and I can just assign an occupancy probability?
-K <- c(20,16,15,7,4,2) #this is just an example, but k is the abundance at each rank (i think?)
-max_abund <- 65 # a somewhat arbitrarily decided upon max abundance
+K <- c(1000, 750, 700, 800, 400, 300)
+max_abund <- 2000 # a somewhat arbitrarily decided upon max abundance
 
 #Building the metacommunities
 meta_comm_list <- vector("list",N)
@@ -39,12 +39,12 @@ for(n in 1:N){
   for(c in 1:num_patches){
     alpha <- as.numeric(sample(1:6, size = 1, replace = T))
     #need to create a relationship between species richness and abundance
-    a <- 10
-    b <- 4
+    a <- 1000
+    b <- 40
     error <- rnorm(length(alpha), mean = 0, sd = 1)
     abundance <- a*log(b*alpha)+error
     R <- alpha
-    KCOM <- max_abund/(1+3*exp(-0.05*(R)))
+    KCOM <- max_abund/(1+50*exp(-0.20*(R+500)))
     KS <- KCOM/abundance
     meta_comm[[c]] <- if(abundance >= KCOM){
       c(K[1:alpha]*KS,rep(0, num_spp - alpha))} else{
