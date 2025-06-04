@@ -5,6 +5,9 @@
 
 # Load packages---------------------------------
 library(vegan)
+library(ggplot2)
+library(tidyr)
+library(patchwork)
 # Parameters------------------------------------
 repo <- "D:/gitrepos/MetaDisease"
 graphs <- paste(repo,"/Graphs",sep="")
@@ -15,18 +18,11 @@ num_spp <- 6 #number of POSSIBLE spp in metacommunity
 
 N <- 100 #number of metacommunity simulations to run
 
-meta_comm1 <- data.frame(matrix(NA, nrow = num_patches, ncol = num_spp))
-S <- c(0.83, #PREG
-       0.62, #TGRAN
-       0.14, #TTOR
-       NA, #ABOR
-       0.12, #RCAT
-       0.64) #RDRAY
-S[4] <- runif(n = 1, min = S[5], max = S[3])
-#an array of probability values for the occurence of each spp
-#what if I over thought this, and I can just assign an occupancy probability?
-K <- c(1000, 750, 700, 800, 400, 300)
-max_abund <- 2000 # a somewhat arbitrarily decided upon max abundance
+Size <- 1000 # size in m^2
+K_rel <- c(10, 7.5, 7, 8, 4, 3)
+K <- Size*K_rel
+
+max_abund <- sum(K)/4 # a somewhat arbitrarily decided upon max abundance
 
 #Building the metacommunities
 meta_comm_list <- vector("list",N)
@@ -39,12 +35,12 @@ for(n in 1:N){
   for(c in 1:num_patches){
     alpha <- as.numeric(sample(1:6, size = 1, replace = T))
     #need to create a relationship between species richness and abundance
-    a <- 1000
-    b <- 40
+    a <- 2000
+    b <- 400
     error <- rnorm(length(alpha), mean = 0, sd = 1)
     abundance <- a*log(b*alpha)+error
     R <- alpha
-    KCOM <- max_abund/(1+50*exp(-0.20*(R+500)))
+    KCOM <- max_abund/(1+300*exp(-0.30*(R+50)))
     KS <- KCOM/abundance
     meta_comm[[c]] <- if(abundance >= KCOM){
       c(K[1:alpha]*KS,rep(0, num_spp - alpha))} else{

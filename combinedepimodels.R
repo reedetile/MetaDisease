@@ -91,7 +91,10 @@ R0 <- sort(R0, decreasing = T)
 ## To plot what the distribution looks like
 # x <- seq(0,2, by = 0.1)
 # plot(x,dtrunc(x, spec = "gamma", a = 0, b = 2, shape =2))
-K <- c(20,16,15,7,4,2) #this is just an example, but k is the abundance at each rank (i think?)
+Size <- 1000 # size in m^2
+K_rel <- c(10, 7.5, 7, 8, 4, 3)
+K <- Size*K_rel
+
 #Prop that will be susceptible
 Infectious <- c(0.67, # Reeder 2012
                 0.41, # Jost 2025
@@ -113,7 +116,7 @@ species_chara <- data.frame(Species = Species,
                             Susceptible = Susceptible,
                             Infectious = Infectious)
 
-species_chara <- species_chara %>% mutate(beta_intra = (R0*sum(K)*(death+recovery))/(1-alpha))
+species_chara <- species_chara %>% mutate(beta_intra = (R0*(death+recovery))/(1-alpha))
 #species_chara <- species_chara %>% mutate(beta_intra = (R0*(death+alpha)))
 
 closeness <- 0.05 #based on mihaljevic 2014
@@ -205,11 +208,12 @@ betaplot_2patch<- ggplot(data = result_2patch, mapping = aes(x = BetaDiversity, 
   ylab("Landscape R0")+
   xlab("Beta Diversity")+
   theme_classic()
+betaplot_2patch
 gammaplot_2patch <- ggplot(data = result_2patch, mapping = aes(x = Gamma_diversity, y = LandscapeR0))+
   geom_point()+
   geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3))+
   theme_classic()
-
+gammaplot_2patch
 #want to make sure this is still following a sat curve
 ggplot(data = result_2patch, mapping = aes(x = Gamma_diversity, y = TotalAbundance))+
   geom_point()+
@@ -279,6 +283,9 @@ beta_5patch_GAM <- gam(LandscapeR0 ~ s(BetaDiversity, bs = "cr", k = 3), data = 
 gamma_5patch_GAM <- gam(LandscapeR0 ~ s(Gamma_diversity, bs = "cr", k = 3), data = result_5patch)
 
 summary(beta_5patch_GAM)
+AIC(beta_5patch_GAM,gamma_5patch_GAM)
+
+
 
 # Plot
 betaplot_5patch <- ggplot(data = result_5patch, mapping = aes(x = BetaDiversity, y = LandscapeR0))+
@@ -287,10 +294,10 @@ betaplot_5patch <- ggplot(data = result_5patch, mapping = aes(x = BetaDiversity,
   ylab("Landscape R0")+
   xlab("Beta Diversity")+
   theme_classic()
-
-ggplot(data = result_5patch, mapping = aes(x = Gamma_diversity, y = LandscapeR0))+
+betaplot_5patch
+gammaplot_5patch <- ggplot(data = result_5patch, mapping = aes(x = Gamma_diversity, y = LandscapeR0))+
   geom_point()+
-  geom_smooth(method = "lm")+
+  geom_smooth(method = "lm", colour = "black")+
   theme_classic()
 
 # ggplot(data = result_5patch, mapping = aes(x = TotalAbundance, y = LandscapeR0))+
