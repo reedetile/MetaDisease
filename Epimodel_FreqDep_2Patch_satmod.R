@@ -21,7 +21,6 @@ source('Epimodel_funcs.R')
 meta_comm_list <- readRDS("metacomm_2Patch.RDS")
 num_patches <- 2
 num_spp <- 6
-time <- 90 #how many "days" do I want in the season
 
 ### Species Characteristics
 #species characteristics
