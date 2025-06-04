@@ -10,6 +10,8 @@ library(ggplot2)
 library(RColorBrewer)
 library(patchwork)
 library(truncdist)
+library(mgcv)
+library(patchwork)
 set.seed(1234)
 
 main.wd <- getwd()
@@ -188,19 +190,24 @@ for (a in 1:length(meta_comm_list_2patch)) {
   result_2patch[a,17] <- a #metacommunity ID
 }
 
+# Run GAMs
+beta_2patch_GAM <- gam(LandscapeR0 ~ s(BetaDiversity, bs = "cr", k = 3), data = result_2patch)
+gamma_2patch_GAM <- gam(LandscapeR0 ~ s(Gamma_diversity, bs = "cr", k = 3), data = result_2patch)
+summary(beta_2patch_GAM)
+summary(gamma_2patch_GAM)
+
+AIC(beta_2patch_GAM, gamma_2patch_GAM)
 
 # plot beta X R0
-ggplot(data = result_2patch, mapping = aes(x = BetaDiversity, y = LandscapeR0))+
+betaplot_2patch<- ggplot(data = result_2patch, mapping = aes(x = BetaDiversity, y = LandscapeR0))+
   geom_point()+
-  geom_smooth(method = 'lm')+
+  geom_smooth(method = 'gam', formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+  ylab("Landscape R0")+
+  xlab("Beta Diversity")+
   theme_classic()
-ggplot(data = result_2patch, mapping = aes(x = Gamma_diversity, y = LandscapeR0))+
+gammaplot_2patch <- ggplot(data = result_2patch, mapping = aes(x = Gamma_diversity, y = LandscapeR0))+
   geom_point()+
-  geom_smooth(method = "lm")+
-  theme_classic()
-ggplot(data = result_2patch, mapping = aes(x = TotalAbundance, y = LandscapeR0))+
-  geom_point()+
-  geom_smooth()+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3))+
   theme_classic()
 
 #want to make sure this is still following a sat curve
@@ -244,7 +251,7 @@ for (a in 1:length(meta_comm_list_5patch)) {
   #abdunance of each species
   for (i in 2:(1+num_spp)) {
     result_5patch[a,i] <- sum(N[,i-1])
-    result_5patch[a,(i+num_spp)] <- result[a,i]/result[a,1]
+    result_5patch[a,(i+num_spp)] <- result_5patch[a,i]/result_5patch[a,1]
   }
   
   #add beta diversity
@@ -265,9 +272,20 @@ for (a in 1:length(meta_comm_list_5patch)) {
   result_5patch[a,16] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
   result_5patch[a,17] <- a #metacommunity ID
 }
-ggplot(data = result_5patch, mapping = aes(x = BetaDiversity, y = LandscapeR0))+
+
+
+# Run GAMs
+beta_5patch_GAM <- gam(LandscapeR0 ~ s(BetaDiversity, bs = "cr", k = 3), data = result_5patch)
+gamma_5patch_GAM <- gam(LandscapeR0 ~ s(Gamma_diversity, bs = "cr", k = 3), data = result_5patch)
+
+summary(beta_5patch_GAM)
+
+# Plot
+betaplot_5patch <- ggplot(data = result_5patch, mapping = aes(x = BetaDiversity, y = LandscapeR0))+
   geom_point()+
-  geom_smooth(method = "lm")+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+  ylab("Landscape R0")+
+  xlab("Beta Diversity")+
   theme_classic()
 
 ggplot(data = result_5patch, mapping = aes(x = Gamma_diversity, y = LandscapeR0))+
@@ -275,13 +293,20 @@ ggplot(data = result_5patch, mapping = aes(x = Gamma_diversity, y = LandscapeR0)
   geom_smooth(method = "lm")+
   theme_classic()
 
-ggplot(data = result_5patch, mapping = aes(x = TotalAbundance, y = LandscapeR0))+
-  geom_point()+
-  geom_smooth(method = "lm")+
-  theme_classic()
+# ggplot(data = result_5patch, mapping = aes(x = TotalAbundance, y = LandscapeR0))+
+#   geom_point()+
+#   geom_smooth(method = "lm")+
+#   theme_classic()
 
 # combine 2 patch and 5 patch plots
-ggplot(data = result_5patch, mapping = aes(x = BetaDiversity, y = LandscapeR0))+
-  geom_smooth(data = result_2patch, aes(x= BetaDiversity, y = LandscapeR0, colour = "red"))+
-  geom_smooth(data = result_5patch, aes(x = BetaDiversity, y = LandscapeR0, colour = "blue"))+
-  ylim(0,1)
+beta_plots <- betaplot_2patch + betaplot_5patch + plot_annotation(tag_levels = "a")
+beta_plots
+setwd(graphs)
+ggsave(filename = "beta_plots.png", beta_plots)
+
+
+
+# Lets create AIC tables
+summary(gamma_2patch_GAM) #p < 2e-16, Rsq = 0.342, Deviance explained = 35.3%
+summary(beta_2patch_GAM) # p < 2e-16, Rsq = 0.155, Deviance explained = 17.1%
+summary(beta_5patch_GAM) # p < 2e-16, Rsq = 0.381, Deviance explauned = 39.2%
