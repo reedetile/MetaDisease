@@ -178,7 +178,7 @@ landscape_R0_freq <- function(beta,I,N,Cmat,b, phi,S,P){
                          b = b,
                          S = S,
                          P = P)
-  K <- R %*% solve(-1*B)
+  K <- -R %*% solve(-1*-B)
   return(list(K = K, R = R, B = B))
 }
 
