@@ -358,7 +358,7 @@ AIC_tab_5 <- AIC(full_model_5,
                beta_phi_5,
                beta_c_5,
                phi_c_5)
-AIC_tab_5$deltaAIC <- min(AIC_tab$AIC) - AIC_tab$AIC
+AIC_tab_5$deltaAIC <- min(AIC_tab_5$AIC) - AIC_tab_5$AIC
 AIC_tab_5
 
 
