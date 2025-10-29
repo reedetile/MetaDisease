@@ -8,6 +8,7 @@ library(vegan)
 library(ggplot2)
 library(tidyr)
 library(patchwork)
+library(truncdist)
 
 #setup -------------------------------------------
 repo <- "C:/Users/rcscott/MetaDisease"
@@ -261,7 +262,11 @@ disp_plot <- ggplot(data = disp_results, mapping = aes(x = max_disp, y = Landsca
   geom_smooth(method = "glm", formula = y~x,
               method.args = list(family = gaussian(link = 'log')),
               colour = "black")+
-  theme_classic()
+  ggtitle("Dispersal (Sim1)")+
+  theme_classic()+
+  theme(axis.title = element_text(size = 0),
+        plot.title = element_text(size = 40, hjust = 0.5),
+        axis.text = element_text(size = 18))
 disp_plot
 #Extreme dispersal
 con_results <- vary_con(meta_comm_df = sim1, 
@@ -273,7 +278,11 @@ con_plot <- ggplot(data = con_results, mapping = aes(x = con, y = LandscapeR0))+
   geom_smooth(method = "glm", formula = y~x,
               method.args = list(family = gaussian(link = 'log')),
               colour = "black")+
-  theme_classic()
+  ggtitle("Connectivity (sim1)")+
+  theme_classic()+
+  theme(axis.title = element_text(size = 0),
+        plot.title = element_text(size = 40, hjust = 0.5),
+        axis.text = element_text(size = 18))
 
 con_plot 
 
@@ -296,7 +305,12 @@ disp_plot_2 <- ggplot(data = disp_results_2, mapping = aes(x = max_disp, y = Lan
   geom_smooth(method = "glm", formula = y~x,
               method.args = list(family = gaussian(link = 'log')),
               colour = "black")+
-  theme_classic()
+  ggtitle("Dispersal (Sim2)")+
+  theme_classic()+
+  theme(axis.title = element_text(size = 0),
+        plot.title = element_text(size = 40, hjust = 0.5),
+        axis.text = element_text(size = 18))
+
 disp_plot_2
 #Extreme dispersal
 con_results_2 <- vary_con(meta_comm_df = sim2, 
@@ -308,6 +322,56 @@ con_plot_2 <- ggplot(data = con_results_2, mapping = aes(x = con, y = LandscapeR
   geom_smooth(method = "glm", formula = y~x,
               method.args = list(family = gaussian(link = 'log')),
               colour = "black")+
-  theme_classic()
+  ggtitle("Connectivity (Sim2)")+
+  theme_classic()+
+  theme(axis.title = element_text(size = 0),
+        plot.title = element_text(size = 40, hjust = 0.5),
+        axis.text = element_text(size = 18))
 
 con_plot_2 
+
+
+# 2 patches, both have 6 species
+
+#setting up meta-community parameters
+num_patches <- 2
+num_spp <- 6
+alpha <- c(6,6)
+sim3 <- metacomm_func(alpha = alpha)
+
+# Doing actual simulation
+#Extreme connectivity
+disp_results_3 <- vary_disp(meta_comm_df = sim3,
+                            species_chara = species_chara,
+                            beta = beta,
+                            num_spp = num_spp,
+                            num_patches = num_patches)
+disp_plot_3 <- ggplot(data = disp_results_3, mapping = aes(x = max_disp, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = "glm", formula = y~x,
+              method.args = list(family = gaussian(link = 'log')),
+              colour = "black")+
+  ggtitle("Dispersal (Sim3)")+
+  theme_classic()+
+  theme(axis.title = element_text(size = 0),
+        plot.title = element_text(size = 40, hjust = 0.5),
+        axis.text = element_text(size = 18))
+
+disp_plot_3
+#Extreme dispersal
+con_results_3 <- vary_con(meta_comm_df = sim3, 
+                          species_chara = species_chara, 
+                          beta = beta,num_spp = num_spp, 
+                          num_patches = num_patches)
+con_plot_3 <- ggplot(data = con_results_3, mapping = aes(x = con, y = LandscapeR0))+
+  geom_point()+
+  geom_smooth(method = "glm", formula = y~x,
+              method.args = list(family = gaussian(link = 'log')),
+              colour = "black")+
+  ggtitle("Connectivity (Sim3)")+
+  theme_classic()+
+  theme(axis.title = element_text(size = 0),
+        plot.title = element_text(size = 40, hjust = 0.5),
+        axis.text = element_text(size = 18))
+
+con_plot_3 
