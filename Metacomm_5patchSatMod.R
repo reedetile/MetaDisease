@@ -9,7 +9,8 @@ library(ggplot2)
 library(tidyr)
 library(patchwork)
 # Parameters------------------------------------
-repo <- "D:/gitrepos/MetaDisease"
+repo <- "C:/Users/rcscott/MetaDisease" # laptop repo
+# repo <- "D:/gitrepos/MetaDisease" #PC repo
 graphs <- paste(repo,"/Graphs",sep="")
 #setting up meta-community parameters
 set.seed(1234)
@@ -58,14 +59,16 @@ max(alpha_df$abund)
 alpha_df$richness <- rowSums(alpha_df[1:6] > 0)
 plot(alpha_df$richness, alpha_df$abund) # alpha diversity is a saturated curve!
 alpha_sat_plot <- ggplot(data = alpha_df, aes(x = richness, y = abund))+
+  geom_jitter(width = 0.5, height = 1000)+
   geom_point()+ 
+  geom_line()+
   xlab("Species Richness")+
   ylab("Species Abundance")+
   #  ggtitle("Alpha diversity relationship with abundance")+
   theme_classic()
 alpha_sat_plot
-
-
+setwd(graphs)
+saveRDS(alpha_sat_plot, file = "alpha_sat_plot5.RDS")
 gamma_df <- data.frame(richness = rep(NA, length = N), abund = rep(NA, length = N))
 for(n in 1:N){
   meta_comm <- data.frame(matrix(unlist(meta_comm_list[[n]]), nrow = num_patches, ncol = num_spp, byrow=T))

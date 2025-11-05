@@ -168,6 +168,8 @@ alpha_df$richness <- rowSums(alpha_df[1:6] > 0)
 plot(alpha_df$richness, alpha_df$abund) # alpha diversity is a saturated curve!
 alpha_sat_plot <- ggplot(data = alpha_df, aes(x = richness, y = abund))+
   geom_point()+ 
+  geom_jitter(width = 0.5, height = 1000)+
+  geom_line()+
   xlab("Species Richness")+
   ylab("Species Abundance")+
 #  ggtitle("Alpha diversity relationship with abundance")+
@@ -190,9 +192,10 @@ gamma_sat_plot <- ggplot(data = gamma_df, aes(x = richness, y = abund))+
   theme_classic()
 gamma_sat_plot
 # let's save these
-sat_plots <- alpha_sat_plot / gamma_sat_plot + plot_annotation(tag_levels = "A")
-setwd(graphs)
-ggsave(filename = 'sat_plots.png', plot = sat_plots)
+saveRDS(alpha_sat_plot, file = "alpha_sat_plot2.RDS")
+# sat_plots <- alpha_sat_plot / gamma_sat_plot + plot_annotation(tag_levels = "A")
+# setwd(graphs)
+# ggsave(filename = 'sat_plots.png', plot = sat_plots)
 
 # save meta comm list
 setwd(repo)

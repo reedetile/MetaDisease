@@ -240,7 +240,9 @@ AIC_tab_2 <- AIC(full_model_2,
     beta_phi_2,
     beta_c_2,
     phi_c_2)
-AIC_tab_2$deltaAIC <- min(AIC_tab_2$AIC) - AIC_tab_2$AIC
+AIC_tab_2$deltaAIC <-  AIC_tab_2$AIC - min(AIC_tab_2$AIC)
+AIC_tab_2$weight <- exp(-0.5*AIC_tab_2$deltaAIC)/sum(exp(-0.5*AIC_tab_2$deltaAIC))
+
 
 # gamma_2patch_GAM <- gam(LandscapeR0 ~ s(Gamma_diversity, bs = "cr", k = 3), data = result_2patch)
 # summary(beta_2patch_GAM)
@@ -358,9 +360,10 @@ AIC_tab_5 <- AIC(full_model_5,
                beta_phi_5,
                beta_c_5,
                phi_c_5)
-AIC_tab_5$deltaAIC <- min(AIC_tab_5$AIC) - AIC_tab_5$AIC
+AIC_tab_5$deltaAIC <- AIC_tab_5$AIC - min(AIC_tab_5$AIC) 
 AIC_tab_5
 
+AIC_tab_5$weight <- exp(-0.5*AIC_tab_5$deltaAIC)/sum(exp(-0.5*AIC_tab_5$deltaAIC))
 
 # Plot
 result_5patch$max_con_cat <- factor(result_5patch$max_con_cat, levels = c("Low","Med","High"))
