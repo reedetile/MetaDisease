@@ -19,7 +19,7 @@ graphs <- paste(repo,"/Graphs",sep = "")
 # Load functions--------------------------------------
 setwd(repo)
 source('Epimodel_funcs.R')
-
+source("Epimodel_funcs_patch_lvl.R")
 #Let's create species characteristics first
 #species characteristics
 Species <- c("PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY")
@@ -145,14 +145,16 @@ num_patches <- 2
 # }
 
 
-max_con <- c(1,0.1,0.01)
+max_con <- c(0.99,0.1,0.01)
 max_disp <- c(0.1, 0.01,0.001)
-result_2patch <- data.frame(matrix(data = NA, nrow = 0, ncol = 21))
+result_2patch <- data.frame(matrix(data = NA, nrow = 0, ncol = 22))
 # colnames(result_2patch) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY",
 #                       "PREG_rel","TGRAN_rel","TTOR_rel","ABOR_rel","RCAT_rel","RDRAY_rel",
 #                       "BetaDiversity","Gamma_diversity","LandscapeR0", "MetaCommID","max_disp","max_con",)
 for (j in 1:length(max_con)) {
-  stay <- runif(1,min = 0, max = max_con[[j]])
+  stay <- if(j == length(max_con)){
+    runif(1, min = 0, max = max_con[[j]])} 
+  else{runif(1, min = max_con[[j+1]], max = max_con[[j]])}
   go <- 1-stay
   c <- matrix(data = NA,
               nrow = num_patches, 
@@ -164,21 +166,21 @@ for (j in 1:length(max_con)) {
   } 
   for(k in 1:length(max_disp)){
     phi <- runif(6, max = max_disp[[k]])
-    result <- data.frame(matrix(data = NA, nrow = length(meta_comm_list_2patch), ncol = 21))
+    result <- data.frame(matrix(data = NA, nrow = length(meta_comm_list_2patch), ncol = 22))
     colnames(result) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY",
                           "PREG_rel","TGRAN_rel","TTOR_rel","ABOR_rel","RCAT_rel","RDRAY_rel",
                           "BetaDiversity","Gamma_diversity","LandscapeR0", "MetaCommID","max_disp","max_con",
-                          "max_disp_cat","max_con_cat")
+                          "max_disp_cat","max_con_cat","mean_R0P")
     for (a in 1:length(meta_comm_list_2patch)) {
-      S <- meta_comm_list_2patch[[a]][,1:6]*species_chara$Susceptible #value of susceptibles
+      Sus <- meta_comm_list_2patch[[a]][,1:6]*species_chara$Susceptible #value of susceptibles
       I <- meta_comm_list_2patch[[a]][,1:6]*species_chara$Infectious#value of infecteds
-      N <- S+I #total pop of a patch
-      S <- as.matrix(S)
+      N <- Sus+I #total pop of a patch
+      Sus <- as.matrix(Sus)
       I <- as.matrix(I)
       N <- as.matrix(N)
       N_meta <- colSums(N)
       phi <- phi #get dispersal rate
-      b <- v + d  # total loss rate
+      b <- v + d + species_chara$alpha  # total loss rate
       alpha_div <- rowSums(N)
       
       # Calculate variables
@@ -196,18 +198,31 @@ for (j in 1:length(max_con)) {
       
       #calculate landscape R0
       r0_landscape <- landscape_R0_freq(beta = beta,
-                                        I = I,
+                                        sus = Sus,
                                         N = N,
                                         Cmat = c,
                                         b = b,
                                         phi = phi,
                                         S = num_spp,
                                         P = num_patches)
+      r0_Patch <- patch_R0_freq_CON(beta = beta,
+                                    sus = Sus,
+                                    N = N,
+                                    b = b,
+                                    phi = phi,
+                                    S = num_spp,
+                                    P = num_patches,
+                                    c = c)
+      mean_r0Patch <- vector("numeric",length = num_patches)
+      for(r in 1:num_patches){
+        mean_r0Patch[[r]] <- max(abs(eigen(r0_Patch[[1]][[r]])$values))
+      }
       
       result[a,16] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
       result[a,17] <- a #metacommunity ID
       result[a,18] <- max(phi)
       result[a,19] <- go 
+      result[a,22] <- mean(mean_r0Patch)
       result[a,20] <- if(k == 1){
         "High"
       } else if(k == 2){
@@ -216,7 +231,7 @@ for (j in 1:length(max_con)) {
       result[a,21] <- if(j == 1){
         "Low"} else if(j == 2){
           "Med"} else{"High"}
-    }
+      }
     result_2patch <- rbind(result_2patch, result)
   }
 }
@@ -242,7 +257,16 @@ AIC_tab_2 <- AIC(full_model_2,
     phi_c_2)
 AIC_tab_2$deltaAIC <-  AIC_tab_2$AIC - min(AIC_tab_2$AIC)
 AIC_tab_2$weight <- exp(-0.5*AIC_tab_2$deltaAIC)/sum(exp(-0.5*AIC_tab_2$deltaAIC))
-
+AIC_tab_2 <- AIC_tab_2 %>% arrange(deltaAIC)
+AIC_tab_2$npar <- c(3,2,2,1,2,1,1)
+AIC_tab_2$dev <- c(deviance(full_model_2),
+                   deviance(beta_phi_2),
+                   deviance(beta_c_2),
+                   deviance(beta_only_2),
+                   deviance(phi_c_2),
+                   deviance(phi_only_2),
+                   deviance(c_only_2))
+summary.gam(full_model_2)
 
 # gamma_2patch_GAM <- gam(LandscapeR0 ~ s(Gamma_diversity, bs = "cr", k = 3), data = result_2patch)
 # summary(beta_2patch_GAM)
@@ -251,17 +275,30 @@ AIC_tab_2$weight <- exp(-0.5*AIC_tab_2$deltaAIC)/sum(exp(-0.5*AIC_tab_2$deltaAIC
 # AIC(beta_2patch_GAM, gamma_2patch_GAM)
 
 # plot beta X R0
-result_2patch$max_con_cat <- factor(result_2patch$max_con_cat, levels = c("Low","Med","High"))
-result_2patch$max_disp_cat <- factor(result_2patch$max_disp_cat, levels = c("High","Med","Low"))
+result_2patch$Connectivity <- factor(result_2patch$max_con_cat, levels = c("Low","Med","High"))
+result_2patch$Dispersal <- factor(result_2patch$max_disp_cat, levels = c("High","Med","Low"))
 
 
-beta_plots_2patch <- ggplot(result_2patch, aes(x = BetaDiversity, y = LandscapeR0)) + 
-  geom_point() + 
+beta_plot_2patch <- ggplot(result_2patch, aes(x = BetaDiversity, y = LandscapeR0)) + 
+  # geom_point(data = result_2patch, aes(x = BetaDiversity,
+  #                                      y = LandscapeR0,
+  #                                      shape = Dispersal,
+  #                                      colour = Connectivity)) + 
+  geom_point()+
   geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+  theme_classic()+
+  ylim(0,0.75)+
   facet_grid(rows = vars(max_disp_cat), cols = vars(max_con_cat))
-beta_plots_2patch
+beta_plot_2patch
 
+PatchR0_plot <- ggplot(result_2patch,aes(x = Gamma_diversity, y = mean_R0P))+
+  geom_point()+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+  theme_classic()+
+  ylim(0,0.75)+
+  facet_grid(rows = vars(max_disp_cat),cols = vars(max_con_cat))
 
+PatchR0_plot
 ### 5 patch system
 meta_comm_list_5patch <- readRDS("metacomm_5Patch.RDS")
 num_patches <- 5
@@ -272,8 +309,10 @@ max_disp <- c(0.1, 0.01,0.001)
 result_5patch <- data.frame(matrix(data = NA, nrow = 0, ncol = 21))
 
 for (j in 1:length(max_con)) {
-  stay <- runif(1,min = 0, max = max_con[[j]])
-  go <- 1-stay
+  stay <- if(j == length(max_con)){
+    runif(1, min = 0, max = max_con[[j]])} 
+  else{runif(1, min = max_con[[j+1]], max = max_con[[j]])}
+  go <- (1-stay)/(num_patches-1)
   c <- matrix(data = NA,
               nrow = num_patches, 
               ncol = num_patches)
@@ -290,15 +329,15 @@ for (j in 1:length(max_con)) {
                           "BetaDiversity","Gamma_diversity","LandscapeR0", "MetaCommID","max_disp","max_con",
                           "max_disp_cat","max_con_cat")
     for (a in 1:length(meta_comm_list_5patch)) {
-      S <- meta_comm_list_5patch[[a]][,1:6]*species_chara$Susceptible #value of susceptibles
+      Sus <- meta_comm_list_5patch[[a]][,1:6]*species_chara$Susceptible #value of susceptibles
       I <- meta_comm_list_5patch[[a]][,1:6]*species_chara$Infectious#value of infecteds
-      N <- S+I #total pop of a patch
-      S <- as.matrix(S)
+      N <- Sus+I #total pop of a patch
+      Sus <- as.matrix(Sus)
       I <- as.matrix(I)
       N <- as.matrix(N)
       N_meta <- colSums(N)
       phi <- phi #get dispersal rate
-      b <- v + d  # total loss rate
+      b <- v + d + species_chara$alpha # total loss rate
       alpha_div <- rowSums(N)
       
       # Calculate variables
@@ -316,7 +355,7 @@ for (j in 1:length(max_con)) {
       
       #calculate landscape R0
       r0_landscape <- landscape_R0_freq(beta = beta,
-                                        I = I,
+                                        sus = Sus,
                                         N = N,
                                         Cmat = c,
                                         b = b,
@@ -362,24 +401,39 @@ AIC_tab_5 <- AIC(full_model_5,
                phi_c_5)
 AIC_tab_5$deltaAIC <- AIC_tab_5$AIC - min(AIC_tab_5$AIC) 
 AIC_tab_5
-
+AIC_tab_5 <- AIC_tab_5 %>% arrange(deltaAIC)
 AIC_tab_5$weight <- exp(-0.5*AIC_tab_5$deltaAIC)/sum(exp(-0.5*AIC_tab_5$deltaAIC))
-
+AIC_tab_5
+AIC_tab_5$npar <- c(3,2,2,1,2,1,1)
+AIC_tab_5$dev <- c(deviance(full_model_5),
+                   deviance(beta_phi_5),
+                   deviance(beta_c_5),
+                   deviance(beta_only_5),
+                   deviance(phi_c_5),
+                   deviance(phi_only_5),
+                   deviance(c_only_5))
 # Plot
-result_5patch$max_con_cat <- factor(result_5patch$max_con_cat, levels = c("Low","Med","High"))
-result_5patch$max_disp_cat <- factor(result_5patch$max_disp_cat, levels = c("High","Med","Low"))
+result_5patch$Connectivity <- factor(result_5patch$max_con_cat, levels = c("Low","Med","High"))
+result_5patch$Dispersal <- factor(result_5patch$max_disp_cat, levels = c("High","Med","Low"))
 
 
-beta_plots_5patch <- ggplot(result_5patch, aes(x = BetaDiversity, y = LandscapeR0)) + 
-  geom_point() + 
+beta_plot_5patch <- ggplot(result_5patch, aes(x = BetaDiversity, 
+                                              y = LandscapeR0)) +
+  geom_point()+
+  # geom_point(data = result_5patch, aes(x = BetaDiversity,
+  #                                     y = LandscapeR0,
+  #                                     shape = Dispersal,
+  #                                     colour = Connectivity)) + 
   geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+  theme_classic()+
+  ylim(0,0.75)+
   facet_grid(rows = vars(max_disp_cat), cols = vars(max_con_cat))
-beta_plots_5patch
+beta_plot_5patch
 
 
 # For good measure, lets plot connectivity + dispersal in each system
 # 2 patchs
-conn_plot_2 <- ggplot(data = result_2patch, aes(x = max_con, y = LandscapeR0))+
+conn_plot_2 <- ggplot(data = result_2patch, aes(x = exp(max_con), y = LandscapeR0))+
   geom_point()+
   geom_smooth(method = "lm")
 conn_plot_2
@@ -407,3 +461,15 @@ disp_plots
 
 conn_plots <- conn_plot_2 + conn_plot_5
 conn_plots
+
+# combine plots 1/10/26. Combing new beta plots into one fig
+beta_plot_2patch <- beta_plot_2patch + theme(legend.position = "none")
+
+beta_plots <- PatchR0_plot /
+  beta_plot_2patch /
+  beta_plot_5patch + plot_annotation(tag_levels = "A")
+beta_plots
+
+setwd(graphs)
+ggsave(filename = "beta_plots.png",
+       beta_plots)

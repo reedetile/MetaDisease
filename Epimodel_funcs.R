@@ -60,13 +60,13 @@ build_R_with_data_env <- function(R0s,b,beta,S,P) {
 #output: fullR.an S*P by S*P matrix. 
 #-----------------------------------------------------
 
-build_R_with_data_freq <- function(beta,I,N,S,P) {
+build_R_with_data_freq <- function(beta,sus,N,S,P) {
   fullR <- matrix(data = 0, nrow = P*S, ncol = P*S)
   for (p in 1:P) {
     Rmat <- matrix(data = 0, nrow = S, ncol = S)
     for (s in 1:S){
       for (i in 1:S){
-        Rmat[s,i] <- (beta[s,i]*I[p,i])/sum(N[p,])
+        Rmat[s,i] <- (beta[s,i]*sus[p,i])/sum(N[p,])
       }
     }
     start <- ifelse(p == 1, p,(S*p)-(S-1))
@@ -90,9 +90,12 @@ build_R_with_data_freq <- function(beta,I,N,S,P) {
 #output:
 #-----------------------------------------------------
 build_B_with_data <- function(Cmat, phi, b, S, P) {
-  Cmat_axis <- colSums(Cmat)
+  Cmat_nodiag <- Cmat
+  diag(Cmat_nodiag) <- 0
+  Cmat_axis <- colSums(Cmat_nodiag)
   diag_list <- vector("list",P^2)
-  diag_list_names <- array(dim = c(sqrt(length(diag_list)), sqrt(length(diag_list))))
+  diag_list_names <- array(dim = c(sqrt(length(diag_list)), 
+                                   sqrt(length(diag_list))))
   for (p in 1:P) { #loop over columns
     for (j in 1:P) { #loop over rows
       diag_list_names[j,p] <- paste(p,j,sep="_")
@@ -106,7 +109,7 @@ build_B_with_data <- function(Cmat, phi, b, S, P) {
       new_diag <- array(dim = S)
       new_diag <- if(p == j){
         #build the diagonal matrix
-        (-1)*b - phi*Cmat_axis[p]
+        (-1)*b - (phi*Cmat_axis[p])
       } else{
         phi*Cmat[j,p]
       }
@@ -167,9 +170,9 @@ landscape_R0_env <- function(R0_spps,Cmat,b, beta, phi,S,P){
 # P = int. Number of patches
 #Output: K. an S*P x S*P matrix. The matrix should be ordered by patch then by species. max eigenvalue of K = landscape R0.
 # R, a component of K, and B, a component of K
-landscape_R0_freq <- function(beta,I,N,Cmat,b, phi,S,P){
+landscape_R0_freq <- function(beta,sus,N,Cmat,b, phi,S,P){
   R <- build_R_with_data_freq(beta = beta,
-                         I = I,
+                         sus = sus,
                          N = N,
                          S = S,
                          P = P)
@@ -183,24 +186,27 @@ landscape_R0_freq <- function(beta,I,N,Cmat,b, phi,S,P){
 }
 
 
-# # Examples of using the functions 
-Spp <- 2 #number of species
-Patches <- 2 #number of patches
-R0s <- matrix(data = rnorm(n = Spp*Patches, mean = 1, sd = 0.1), nrow = Patches, ncol = Spp)
-b <- rnorm(n = Spp, mean = 1, sd = 0.1)
-phi <- rnorm(n = 2, mean = 0.5, sd = 0.1)
-#transmission
-beta <- matrix(data = NA, nrow = Spp, ncol = Spp)
-for (i in 1:nrow(beta)) {
-  for (j in 1:ncol(beta)) {
-    beta[i,j] <- ifelse(i == j, rbeta(n = 1, shape1 = 2, shape2 = 10),rbeta(n = 1, shape1 = 1, shape2 = 1))
-  }
-}
-#connectivity
-Cmat <- matrix(data = rnorm(n = Patches^2, mean = 0.5, sd = 0.1),
-            nrow = Patches,
-            ncol = Patches)
-# 
+# # Examples of using the functions
+# Spp <- 2 #number of species
+# Patches <- 2 #number of patches
+# R0s <- matrix(data = rnorm(n = Spp*Patches, mean = 1, sd = 0.1), nrow = Patches, ncol = Spp)
+# b <- rnorm(n = Spp, mean = 1, sd = 0.1)
+# phi <- rnorm(n = 2, mean = 0.5, sd = 0.1)
+# #transmission
+# beta <- matrix(data = NA, nrow = Spp, ncol = Spp)
+# for (i in 1:nrow(beta)) {
+#   for (j in 1:ncol(beta)) {
+#     beta[i,j] <- ifelse(i == j, rbeta(n = 1, shape1 = 2, shape2 = 10),rbeta(n = 1, shape1 = 1, shape2 = 1))
+#   }
+# }
+# #connectivity
+# Cmat <- matrix(nrow = Patches, ncol = Patches)
+# stay <- rnorm(n = 1, mean = 0.5, sd = 0.1)
+# go <- 1- stay
+# Cmat <- matrix(data = c(stay,go,go,stay),
+#             nrow = Patches,
+#             ncol = Patches)
+#
 # ### Environmental zoospore model
 # r <- build_R_with_data_env(R0s = R0s,
 #                        b = b,
@@ -222,24 +228,24 @@ Cmat <- matrix(data = rnorm(n = Patches^2, mean = 0.5, sd = 0.1),
 # max(abs(eigen(K2[[1]])$values))
 # eigen(K2[[1]])$values[1]
 # View(K2[[1]])
-# 
+#
 # ### Freq dependent model
 # N <- matrix(rep(NA,4), nrow = 2, ncol = 2)
 # N[,1] <- runif(2, min = 10, max = 20)
 # for(i in 1:2){
 #   N[i,2] <- runif(1, min = 1, max = N[i,1])
 # }
-# S <- N*c(0.8,0.95)
+# Sus <- N*c(0.8,0.95)
 # I <- N - S
 # r_freq <- build_R_with_data_freq(beta = beta,
-#                                  I = I,
+#                                  sus = Sus,
 #                                  N = N,
 #                                  S = Spp,
 #                                  P = Patches)
 # 
 # # Not currently working. Need to probably adjust B matrix
 # K_freq <- landscape_R0_freq(beta = beta,
-#                             I = I,
+#                             sus = Sus,
 #                             N = N,
 #                             Cmat = Cmat,
 #                             b = b,
