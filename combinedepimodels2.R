@@ -255,17 +255,30 @@ AIC_tab_2 <- AIC(full_model_2,
     beta_phi_2,
     beta_c_2,
     phi_c_2)
+
+mod_list_2 <- list(full_model_2,
+                 beta_only_2,
+                 phi_only_2,
+                 c_only_2,
+                 beta_phi_2,
+                 beta_c_2,
+                 phi_c_2)
 AIC_tab_2$deltaAIC <-  AIC_tab_2$AIC - min(AIC_tab_2$AIC)
 AIC_tab_2$weight <- exp(-0.5*AIC_tab_2$deltaAIC)/sum(exp(-0.5*AIC_tab_2$deltaAIC))
+npar_fun <- function(x){
+  npar <- vector("numeric",length = length(x))
+  for(i in 1:length(x)){
+    npar[[i]] <- length(names(x[[i]][["model"]])) - 1
+  }
+  return(npar)
+}
+AIC_tab_2$npar <- npar_fun(x = mod_list_2)
+
+AIC_tab_2$deviance <- unlist(lapply(mod_list_2,deviance))
+
 AIC_tab_2 <- AIC_tab_2 %>% arrange(deltaAIC)
-AIC_tab_2$npar <- c(3,2,2,1,2,1,1)
-AIC_tab_2$dev <- c(deviance(full_model_2),
-                   deviance(beta_phi_2),
-                   deviance(beta_c_2),
-                   deviance(beta_only_2),
-                   deviance(phi_c_2),
-                   deviance(phi_only_2),
-                   deviance(c_only_2))
+
+summary.gam(beta_phi_2)
 summary.gam(full_model_2)
 
 # gamma_2patch_GAM <- gam(LandscapeR0 ~ s(Gamma_diversity, bs = "cr", k = 3), data = result_2patch)
@@ -278,27 +291,35 @@ summary.gam(full_model_2)
 result_2patch$Connectivity <- factor(result_2patch$max_con_cat, levels = c("Low","Med","High"))
 result_2patch$Dispersal <- factor(result_2patch$max_disp_cat, levels = c("High","Med","Low"))
 
+beta_plot_2patch <-  ggplot(result_2patch, aes(x = BetaDiversity, y = LandscapeR0)) +
+  geom_point(shape = 1, alpha = 0.15)+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+  theme_classic()+
+  ylim(0,0.9)+
+  labs(x  = expression(beta[w]),y = expression(R["0,L"]))
+beta_plot_2patch
 
-beta_plot_2patch <- ggplot(result_2patch, aes(x = BetaDiversity, y = LandscapeR0)) + 
+grid_plot_2patch <- ggplot(result_2patch, aes(x = BetaDiversity, y = LandscapeR0)) + 
   # geom_point(data = result_2patch, aes(x = BetaDiversity,
   #                                      y = LandscapeR0,
   #                                      shape = Dispersal,
   #                                      colour = Connectivity)) + 
-  geom_point()+
+  geom_point(shape = 1, alpha = 0.15)+
   geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
   theme_classic()+
-  ylim(0,0.75)+
+  ylim(0,0.9)+
+  labs(x  = expression(beta[w]),y = expression(R["0,L"]))+
   facet_grid(rows = vars(max_disp_cat), cols = vars(max_con_cat))
-beta_plot_2patch
+grid_plot_2patch
 
-PatchR0_plot <- ggplot(result_2patch,aes(x = Gamma_diversity, y = mean_R0P))+
-  geom_point()+
-  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
-  theme_classic()+
-  ylim(0,0.75)+
-  facet_grid(rows = vars(max_disp_cat),cols = vars(max_con_cat))
+# PatchR0_plot <- ggplot(result_2patch,aes(x = Gamma_diversity, y = mean_R0P))+
+#   geom_point()+
+#   geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+#   theme_classic()+
+#   ylim(0,0.75)+
+#   facet_grid(rows = vars(max_disp_cat),cols = vars(max_con_cat))
 
-PatchR0_plot
+# PatchR0_plot
 ### 5 patch system
 meta_comm_list_5patch <- readRDS("metacomm_5Patch.RDS")
 num_patches <- 5
@@ -399,36 +420,55 @@ AIC_tab_5 <- AIC(full_model_5,
                beta_phi_5,
                beta_c_5,
                phi_c_5)
+
+mod_list_5 <- list(full_model_5,
+                 beta_only_5,
+                 phi_only_5,
+                 c_only_5,
+                 beta_phi_5,
+                 beta_c_5,
+                 phi_c_5)
 AIC_tab_5$deltaAIC <- AIC_tab_5$AIC - min(AIC_tab_5$AIC) 
 AIC_tab_5
 AIC_tab_5 <- AIC_tab_5 %>% arrange(deltaAIC)
 AIC_tab_5$weight <- exp(-0.5*AIC_tab_5$deltaAIC)/sum(exp(-0.5*AIC_tab_5$deltaAIC))
 AIC_tab_5
-AIC_tab_5$npar <- c(3,2,2,1,2,1,1)
-AIC_tab_5$dev <- c(deviance(full_model_5),
-                   deviance(beta_phi_5),
-                   deviance(beta_c_5),
-                   deviance(beta_only_5),
-                   deviance(phi_c_5),
-                   deviance(phi_only_5),
-                   deviance(c_only_5))
+npar_fun <- function(x){
+  npar <- vector("numeric",length = length(x))
+  for(i in 1:length(x)){
+    npar[[i]] <- length(names(x[[i]][["model"]])) - 1
+  }
+  return(npar)
+}
+AIC_tab_5$npar <- npar_fun(x = mod_list_5)
+AIC_tab_5$dev <- lapply(mod_list_5,deviance)
+AIC_tab_5 <- AIC_tab_5 %>% arrange(deltaAIC)
+summary(full_model_5)
 # Plot
 result_5patch$Connectivity <- factor(result_5patch$max_con_cat, levels = c("Low","Med","High"))
 result_5patch$Dispersal <- factor(result_5patch$max_disp_cat, levels = c("High","Med","Low"))
 
+beta_plot_5patch <-  ggplot(result_5patch, aes(x = BetaDiversity, y = LandscapeR0)) +
+  geom_point(shape = 1, alpha = 0.15)+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+  theme_classic()+
+  ylim(0,0.9)+
+  labs(x  = expression(beta[w]),y = expression(R["0,L"]))
+beta_plot_5patch
 
-beta_plot_5patch <- ggplot(result_5patch, aes(x = BetaDiversity, 
+grid_plot_5patch <- ggplot(result_5patch, aes(x = BetaDiversity, 
                                               y = LandscapeR0)) +
-  geom_point()+
+  geom_point(shape = 1, alpha = 0.15)+
   # geom_point(data = result_5patch, aes(x = BetaDiversity,
   #                                     y = LandscapeR0,
   #                                     shape = Dispersal,
   #                                     colour = Connectivity)) + 
   geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
   theme_classic()+
-  ylim(0,0.75)+
+  ylim(0,0.9)+
+  labs(x  = expression(beta[w]),y = expression(R["0,L"]))+
   facet_grid(rows = vars(max_disp_cat), cols = vars(max_con_cat))
-beta_plot_5patch
+grid_plot_5patch
 
 
 # For good measure, lets plot connectivity + dispersal in each system
@@ -463,13 +503,13 @@ conn_plots <- conn_plot_2 + conn_plot_5
 conn_plots
 
 # combine plots 1/10/26. Combing new beta plots into one fig
-beta_plot_2patch <- beta_plot_2patch + theme(legend.position = "none")
 
-beta_plots <- PatchR0_plot /
-  beta_plot_2patch /
-  beta_plot_5patch + plot_annotation(tag_levels = "A")
+beta_plots <- (beta_plot_2patch + beta_plot_5patch)/
+  (grid_plot_2patch +grid_plot_5patch) +plot_annotation(tag_levels = "A")
 beta_plots
 
 setwd(graphs)
 ggsave(filename = "beta_plots.png",
-       beta_plots)
+       beta_plots,
+       width = 8,
+       height = 8)
