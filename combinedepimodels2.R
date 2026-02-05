@@ -7,6 +7,7 @@
 library(vegan)
 library(tidyverse)
 library(ggplot2)
+library(cowplot)
 library(RColorBrewer)
 library(patchwork)
 library(truncdist)
@@ -289,7 +290,7 @@ summary.gam(full_model_2)
 
 # plot beta X R0
 result_2patch$Connectivity <- factor(result_2patch$max_con_cat, levels = c("Low","Med","High"))
-result_2patch$Dispersal <- factor(result_2patch$max_disp_cat, levels = c("High","Med","Low"))
+result_2patch$Dispersal <- factor(result_2patch$max_disp_cat, levels = c("Low","Med","High"))
 
 beta_plot_2patch <-  ggplot(result_2patch, aes(x = BetaDiversity, y = LandscapeR0)) +
   geom_point(shape = 1, alpha = 0.15)+
@@ -309,7 +310,16 @@ grid_plot_2patch <- ggplot(result_2patch, aes(x = BetaDiversity, y = LandscapeR0
   theme_classic()+
   ylim(0,0.9)+
   labs(x  = expression(beta[w]),y = expression(R["0,L"]))+
-  facet_grid(rows = vars(max_disp_cat), cols = vars(max_con_cat))
+  facet_grid(rows = vars(Dispersal), cols = vars(Connectivity))+
+  theme(plot.margin = margin(t = 25, r = 15,b = 10,l = 0))
+
+grid_plot_2patch <- ggdraw(grid_plot_2patch) +
+  # Column title (top)
+  draw_label("Connectivity",x = 0.5, y = 1.0,vjust = 1,size = 14) +
+  # Row title (right)
+  draw_label("Dispersal",x = 1.0, y = 0.5,angle = -90,vjust = 1,size = 14)
+
+
 grid_plot_2patch
 
 # PatchR0_plot <- ggplot(result_2patch,aes(x = Gamma_diversity, y = mean_R0P))+
@@ -467,9 +477,18 @@ grid_plot_5patch <- ggplot(result_5patch, aes(x = BetaDiversity,
   theme_classic()+
   ylim(0,0.9)+
   labs(x  = expression(beta[w]),y = expression(R["0,L"]))+
-  facet_grid(rows = vars(max_disp_cat), cols = vars(max_con_cat))
-grid_plot_5patch
+  facet_grid(rows = vars(max_disp_cat), cols = vars(max_con_cat))+
+  theme(plot.margin = margin(t = 25, r = 15,b = 10,l = 0))
 
+
+grid_plot_5patch <- ggdraw(grid_plot_5patch) +
+  # Column title (top)
+  draw_label("Connectivity",x = 0.5, y = 1.0,vjust = 1,size = 14) +
+  # Row title (right)
+  draw_label("Dispersal",x = 1.0, y = 0.5,angle = -90,vjust = 1,size = 14)
+
+
+grid_plot_5patch
 
 # For good measure, lets plot connectivity + dispersal in each system
 # 2 patchs
@@ -511,5 +530,5 @@ beta_plots
 setwd(graphs)
 ggsave(filename = "beta_plots.png",
        beta_plots,
-       width = 8,
-       height = 8)
+       width = 10,
+       height = 10)
