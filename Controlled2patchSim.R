@@ -73,7 +73,7 @@ vary_disp_R0L <- function(meta_comm_df,species_chara,beta,num_spp,num_patches){
 
 vary_dispR0P_iso <- function(meta_comm_df,species_chara,beta,num_spp,num_patches){
   set.seed(1234)
-  stay <- 0.01
+  stay <- 0
   go <- 1-stay
   c <- matrix(data = NA,
               nrow = num_patches, 
@@ -126,7 +126,7 @@ vary_dispR0P_iso <- function(meta_comm_df,species_chara,beta,num_spp,num_patches
 
 vary_dispR0P_connected <- function(meta_comm_df,species_chara,beta,num_spp,num_patches){
   set.seed(1234)
-  stay <- 0.01
+  stay <- 0
   go <- 1-stay
   c <- matrix(data = NA,
               nrow = num_patches, 
@@ -178,155 +178,155 @@ vary_dispR0P_connected <- function(meta_comm_df,species_chara,beta,num_spp,num_p
   return(result_disp)
 }
 
-vary_conR0P_ISO <- function(meta_comm_df,species_chara,beta,num_spp,num_patches){
-  phi <- rep(1, 6)
-  result_con <- data.frame(matrix(data = NA, nrow = 0, ncol = 2))
-  max_con <- seq(0,0.1,by = 0.001)
-  for (z in 1:length(max_con)) {
-    go <- max_con[[z]]
-    stay <- 1-go
-    c <- matrix(data = NA,
-                nrow = num_patches, 
-                ncol = num_patches)
-    for(i in 1:ncol(c)){
-      for(m in 1:nrow(c)){
-        c[i,m] <- ifelse(i == m, stay, go)
-      }
-    }
-    result <- data.frame(matrix(data = NA, nrow = 1, ncol = 3))
-    colnames(result) <- c("PatchR0","connectivity","Patch")
-    Sus <- meta_comm_df*species_chara$Susceptible #value of susceptibles
-    I <- meta_comm_df*species_chara$Infectious#value of infecteds
-    N <- Sus+I #total pop of a patch
-    Sus <- as.matrix(Sus)
-    I <- as.matrix(I)
-    N <- as.matrix(N)
-    N_meta <- colSums(N)
-    b <- species_chara$death + 
-      species_chara$recovery + 
-      species_chara$alpha  # total loss rate
-    alpha_div <- rowSums(N)
-      
-    # Calculate variables
-      
-    #calculate landscape R0
-      r0_patch <- patch_R0_freq_ISO(beta = beta,
-                                  sus = Sus,
-                                  N = N,
-                                  b = b,
-                                  S = num_spp,
-                                  P = num_patches)
-      for (p in 1:num_patches) {
-        result[p,1] <- max(abs(eigen(r0_patch[[1]][[p]])$values))
-        result[p,2] <- go
-        result[p,3] <- p
-      }
-        result_con <- rbind(result_con, result)
-  }
-  result_con$Patch <- as.factor(result_con$Patch)
-  return(result_con)
-}
-
-vary_conR0P_connected <- function(meta_comm_df,species_chara,beta,num_spp,num_patches){
-  set.seed(1234)
-  phi <- rep(1, 6)
-  result_con <- data.frame(matrix(data = NA, nrow = 0, ncol = 2))
-  max_con <- seq(0,0.1,by = 0.001)
-  result_con <- data.frame(matrix(data = NA, nrow = 0, ncol = 3))
-  for(z in 1:length(max_con)){
-    go <- max_con[[z]]
-    stay <- 1-go
-    c <- matrix(data = NA,
-                nrow = num_patches, 
-                ncol = num_patches)
-    for(i in 1:ncol(c)){
-      for(m in 1:nrow(c)){
-        c[i,m] <- ifelse(i == m, stay, go)
-      }
-    }
-    result <- data.frame(matrix(data = NA, nrow = 1, ncol = 3))
-    colnames(result) <- c("PatchR0","connectivity","Patch")
-    
-    Sus <- meta_comm_df*species_chara$Susceptible #value of susceptibles
-    I <- meta_comm_df*species_chara$Infectious#value of infecteds
-    N <- Sus+I #total pop of a patch
-    Sus <- as.matrix(Sus)
-    I <- as.matrix(I)
-    N <- as.matrix(N)
-    N_meta <- colSums(N)
-    b <- species_chara$death + 
-      species_chara$recovery + 
-      species_chara$alpha  # total loss rate
-    alpha_div <- rowSums(N)
-    
-    # Calculate variables
-    
-    #calculate landscape R0
-    r0_patch <- patch_R0_freq_CON(beta = beta,
-                                  sus = Sus,
-                                  N = N,
-                                  b = b,
-                                  S = num_spp,
-                                  P = num_patches,
-                                  phi = phi,
-                                  c = c)
-    for (p in 1:num_patches) {
-      result[p,1] <- max(abs(eigen(r0_patch[[1]][[p]])$values))
-      result[p,2] <- go
-      result[p,3] <- p
-    }
-    result_con <- rbind(result_con, result)
-  }
-  result_con$Patch <- as.factor(result_con$Patch)
-  return(result_con)
-}
-
-vary_con <- function(meta_comm_df,species_chara,beta,num_spp,num_patches){
-  phi <- rep(1, 6)
-  result_con <- data.frame(matrix(data = NA, nrow = 0, ncol = 2))
-  max_con <- seq(0,0.1,by = 0.001)
-  for (z in 1:length(max_con)) {
-    go <- max_con[[z]]
-    stay <- 1-go
-    c <- matrix(data = NA,
-                nrow = num_patches, 
-                ncol = num_patches)
-    for(i in 1:ncol(c)){
-      for(m in 1:nrow(c)){
-        c[i,m] <- ifelse(i == m, stay, go)
-      }
-    } 
-    result <- data.frame(matrix(data = NA, nrow = 1, ncol = 2))
-    colnames(result) <- c("LandscapeR0","con")
-    
-    Sus <- meta_comm_df*species_chara$Susceptible #value of susceptibles
-    I <- meta_comm_df*species_chara$Infectious#value of infecteds
-    N <- Sus+I #total pop of a patch
-    Sus <- as.matrix(Sus)
-    I <- as.matrix(I)
-    N <- as.matrix(N)
-    N_meta <- colSums(N)
-    b <- v + d  # total loss rate
-    alpha_div <- rowSums(N)
-    
-    # Calculate variables
-    
-    #calculate landscape R0
-    r0_landscape <- landscape_R0_freq(beta = beta,
-                                      sus = Sus,
-                                      N = N,
-                                      Cmat = c,
-                                      b = b,
-                                      phi = phi,
-                                      S = num_spp,
-                                      P = num_patches)
-    
-    result[1,1] <- max(abs(eigen(r0_landscape[[1]])$values))
-    result[1,2] <- go
-    result_con <- rbind(result_con, result)
-  }
-  return(result_con)
-}
+# vary_conR0P_ISO <- function(meta_comm_df,species_chara,beta,num_spp,num_patches){
+#   phi <- rep(1, 6)
+#   result_con <- data.frame(matrix(data = NA, nrow = 0, ncol = 2))
+#   max_con <- seq(0,0.1,by = 0.001)
+#   for (z in 1:length(max_con)) {
+#     go <- max_con[[z]]
+#     stay <- 1-go
+#     c <- matrix(data = NA,
+#                 nrow = num_patches, 
+#                 ncol = num_patches)
+#     for(i in 1:ncol(c)){
+#       for(m in 1:nrow(c)){
+#         c[i,m] <- ifelse(i == m, stay, go)
+#       }
+#     }
+#     result <- data.frame(matrix(data = NA, nrow = 1, ncol = 3))
+#     colnames(result) <- c("PatchR0","connectivity","Patch")
+#     Sus <- meta_comm_df*species_chara$Susceptible #value of susceptibles
+#     I <- meta_comm_df*species_chara$Infectious#value of infecteds
+#     N <- Sus+I #total pop of a patch
+#     Sus <- as.matrix(Sus)
+#     I <- as.matrix(I)
+#     N <- as.matrix(N)
+#     N_meta <- colSums(N)
+#     b <- species_chara$death + 
+#       species_chara$recovery + 
+#       species_chara$alpha  # total loss rate
+#     alpha_div <- rowSums(N)
+#       
+#     # Calculate variables
+#       
+#     #calculate landscape R0
+#       r0_patch <- patch_R0_freq_ISO(beta = beta,
+#                                   sus = Sus,
+#                                   N = N,
+#                                   b = b,
+#                                   S = num_spp,
+#                                   P = num_patches)
+#       for (p in 1:num_patches) {
+#         result[p,1] <- max(abs(eigen(r0_patch[[1]][[p]])$values))
+#         result[p,2] <- go
+#         result[p,3] <- p
+#       }
+#         result_con <- rbind(result_con, result)
+#   }
+#   result_con$Patch <- as.factor(result_con$Patch)
+#   return(result_con)
+# }
+# 
+# vary_conR0P_connected <- function(meta_comm_df,species_chara,beta,num_spp,num_patches){
+#   set.seed(1234)
+#   phi <- rep(1, 6)
+#   result_con <- data.frame(matrix(data = NA, nrow = 0, ncol = 2))
+#   max_con <- seq(0,0.1,by = 0.001)
+#   result_con <- data.frame(matrix(data = NA, nrow = 0, ncol = 3))
+#   for(z in 1:length(max_con)){
+#     go <- max_con[[z]]
+#     stay <- 1-go
+#     c <- matrix(data = NA,
+#                 nrow = num_patches, 
+#                 ncol = num_patches)
+#     for(i in 1:ncol(c)){
+#       for(m in 1:nrow(c)){
+#         c[i,m] <- ifelse(i == m, stay, go)
+#       }
+#     }
+#     result <- data.frame(matrix(data = NA, nrow = 1, ncol = 3))
+#     colnames(result) <- c("PatchR0","connectivity","Patch")
+#     
+#     Sus <- meta_comm_df*species_chara$Susceptible #value of susceptibles
+#     I <- meta_comm_df*species_chara$Infectious#value of infecteds
+#     N <- Sus+I #total pop of a patch
+#     Sus <- as.matrix(Sus)
+#     I <- as.matrix(I)
+#     N <- as.matrix(N)
+#     N_meta <- colSums(N)
+#     b <- species_chara$death + 
+#       species_chara$recovery + 
+#       species_chara$alpha  # total loss rate
+#     alpha_div <- rowSums(N)
+#     
+#     # Calculate variables
+#     
+#     #calculate landscape R0
+#     r0_patch <- patch_R0_freq_CON(beta = beta,
+#                                   sus = Sus,
+#                                   N = N,
+#                                   b = b,
+#                                   S = num_spp,
+#                                   P = num_patches,
+#                                   phi = phi,
+#                                   c = c)
+#     for (p in 1:num_patches) {
+#       result[p,1] <- max(abs(eigen(r0_patch[[1]][[p]])$values))
+#       result[p,2] <- go
+#       result[p,3] <- p
+#     }
+#     result_con <- rbind(result_con, result)
+#   }
+#   result_con$Patch <- as.factor(result_con$Patch)
+#   return(result_con)
+# }
+# 
+# vary_con <- function(meta_comm_df,species_chara,beta,num_spp,num_patches){
+#   phi <- rep(1, 6)
+#   result_con <- data.frame(matrix(data = NA, nrow = 0, ncol = 2))
+#   max_con <- seq(0,0.1,by = 0.001)
+#   for (z in 1:length(max_con)) {
+#     go <- max_con[[z]]
+#     stay <- 1-go
+#     c <- matrix(data = NA,
+#                 nrow = num_patches, 
+#                 ncol = num_patches)
+#     for(i in 1:ncol(c)){
+#       for(m in 1:nrow(c)){
+#         c[i,m] <- ifelse(i == m, stay, go)
+#       }
+#     } 
+#     result <- data.frame(matrix(data = NA, nrow = 1, ncol = 2))
+#     colnames(result) <- c("LandscapeR0","con")
+#     
+#     Sus <- meta_comm_df*species_chara$Susceptible #value of susceptibles
+#     I <- meta_comm_df*species_chara$Infectious#value of infecteds
+#     N <- Sus+I #total pop of a patch
+#     Sus <- as.matrix(Sus)
+#     I <- as.matrix(I)
+#     N <- as.matrix(N)
+#     N_meta <- colSums(N)
+#     b <- v + d  # total loss rate
+#     alpha_div <- rowSums(N)
+#     
+#     # Calculate variables
+#     
+#     #calculate landscape R0
+#     r0_landscape <- landscape_R0_freq(beta = beta,
+#                                       sus = Sus,
+#                                       N = N,
+#                                       Cmat = c,
+#                                       b = b,
+#                                       phi = phi,
+#                                       S = num_spp,
+#                                       P = num_patches)
+#     
+#     result[1,1] <- max(abs(eigen(r0_landscape[[1]])$values))
+#     result[1,2] <- go
+#     result_con <- rbind(result_con, result)
+#   }
+#   return(result_con)
+# }
 metacomm_func <- function(alpha, patches = 2, species = 6){
   #setting up meta-community parameters
   set.seed(1234)
@@ -529,33 +529,33 @@ sim1_disp_plot
 #         axis.text = element_text(size = 0),
 #         axis.line = element_line(linewidth = 1.5))
 # disp_R0L_plot
-#Extreme dispersal
-# Patches are treated as isolated
-sim1_con_iso <- vary_conR0P_ISO(meta_comm_df = sim1,
-                                species_chara = species_chara,
-                                beta = beta,
-                                num_spp = num_spp,
-                                num_patches = num_patches)
-sim1_con_CON <- vary_conR0P_connected(meta_comm_df = sim1,
-                                      species_chara = species_chara,
-                                      beta = beta,
-                                      num_spp = num_spp,
-                                      num_patches = num_patches)
-
-sim1_con_plot <- ggplot(data = sim1_con_CON, aes(x = connectivity, y = PatchR0, colour = Patch))+
-  scale_color_grey()+
-  geom_point(size = 2)+
-  geom_line(data = sim1_con_iso,linewidth = 2)+
-  labs(x = "Connectivity", y = expression("Patch"~R[0]))+
-  ylim(0,35)+
-  theme_classic()+
-  theme(axis.title = element_text(size = 25),
-        plot.title = element_text(size = 0, hjust = 0.5),
-        axis.text = element_text(size = 0),
-        axis.line = element_line(linewidth = 1.5),
-        legend.title = element_text(size = 20),
-        legend.text = element_text(size = 20))
-sim1_con_plot
+# #Extreme dispersal
+# # Patches are treated as isolated
+# sim1_con_iso <- vary_conR0P_ISO(meta_comm_df = sim1,
+#                                 species_chara = species_chara,
+#                                 beta = beta,
+#                                 num_spp = num_spp,
+#                                 num_patches = num_patches)
+# sim1_con_CON <- vary_conR0P_connected(meta_comm_df = sim1,
+#                                       species_chara = species_chara,
+#                                       beta = beta,
+#                                       num_spp = num_spp,
+#                                       num_patches = num_patches)
+# 
+# sim1_con_plot <- ggplot(data = sim1_con_CON, aes(x = connectivity, y = PatchR0, colour = Patch))+
+#   scale_color_grey()+
+#   geom_point(size = 2)+
+#   geom_line(data = sim1_con_iso,linewidth = 2)+
+#   labs(x = "Connectivity", y = expression("Patch"~R[0]))+
+#   ylim(0,35)+
+#   theme_classic()+
+#   theme(axis.title = element_text(size = 25),
+#         plot.title = element_text(size = 0, hjust = 0.5),
+#         axis.text = element_text(size = 0),
+#         axis.line = element_line(linewidth = 1.5),
+#         legend.title = element_text(size = 20),
+#         legend.text = element_text(size = 20))
+# sim1_con_plot
 
 # con_results <- vary_con(meta_comm_df = sim1, 
 #          species_chara = species_chara, 
@@ -632,33 +632,33 @@ sim2_disp_plot
 #         axis.line = element_line(linewidth = 1.5))
 # 
 # disp_plot_2
-#Extreme dispersal
-sim2_con_iso <- vary_conR0P_ISO(meta_comm_df = sim2,
-                                species_chara = species_chara,
-                                beta = beta,
-                                num_spp = num_spp,
-                                num_patches = num_patches)
-
-sim2_con_CON <- vary_conR0P_connected(meta_comm_df = sim2,
-                                species_chara = species_chara,
-                                beta = beta,
-                                num_spp = num_spp,
-                                num_patches = num_patches)
-sim2_con_plot <- ggplot(data = sim2_con_CON, aes(x = connectivity, y = PatchR0, colour = Patch))+
-  scale_color_grey()+
-  geom_point(size = 2)+
-  geom_line(data = sim2_con_iso, linewidth = 2)+
-  theme_classic()+
-  theme(legend.position = "none")+
-  ylim(0,35)+
-  labs(x = "Connectivity", y = expression("Patch"~R[0]))+
-  theme(axis.title = element_text(size = 25),
-        plot.title = element_text(size = 0, hjust = 0.5),
-        axis.text = element_text(size = 0),
-        axis.line = element_line(linewidth = 1.5),
-        legend.title = element_text(size = 20),
-        legend.text = element_text(size = 20))
-sim2_con_plot
+# #Extreme dispersal
+# sim2_con_iso <- vary_conR0P_ISO(meta_comm_df = sim2,
+#                                 species_chara = species_chara,
+#                                 beta = beta,
+#                                 num_spp = num_spp,
+#                                 num_patches = num_patches)
+# 
+# sim2_con_CON <- vary_conR0P_connected(meta_comm_df = sim2,
+#                                 species_chara = species_chara,
+#                                 beta = beta,
+#                                 num_spp = num_spp,
+#                                 num_patches = num_patches)
+# sim2_con_plot <- ggplot(data = sim2_con_CON, aes(x = connectivity, y = PatchR0, colour = Patch))+
+#   scale_color_grey()+
+#   geom_point(size = 2)+
+#   geom_line(data = sim2_con_iso, linewidth = 2)+
+#   theme_classic()+
+#   theme(legend.position = "none")+
+#   ylim(0,35)+
+#   labs(x = "Connectivity", y = expression("Patch"~R[0]))+
+#   theme(axis.title = element_text(size = 25),
+#         plot.title = element_text(size = 0, hjust = 0.5),
+#         axis.text = element_text(size = 0),
+#         axis.line = element_line(linewidth = 1.5),
+#         legend.title = element_text(size = 20),
+#         legend.text = element_text(size = 20))
+# sim2_con_plot
 
 
 # con_results_2 <- vary_con(meta_comm_df = sim2, 
@@ -789,9 +789,9 @@ sim3_con_plot
 
 
 # view disp plots together
-Sim1_plot <- (sim1_disp_plot + sim1_con_plot)
-Sim1_plot # Is actually scenario 2 in the figure in manuscript
-Sim2_plot <- (sim2_disp_plot + sim2_con_plot)
-Sim2_plot # Is actually scenario 1 in the figure in manusript
-Sim3_plot <- (sim3_disp_plot + sim3_con_plot)
-Sim3_plot
+#Sim1_plot <- (sim1_disp_plot + sim1_con_plot)
+sim1_disp_plot # Is actually scenario 2 in the figure in manuscript
+# Sim2_plot <- (sim2_disp_plot + sim2_con_plot)
+sim2_disp_plot # Is actually scenario 1 in the figure in manusript
+# Sim3_plot <- (sim3_disp_plot + sim3_con_plot)
+sim3_disp_plot
