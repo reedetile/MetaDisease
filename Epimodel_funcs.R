@@ -77,6 +77,34 @@ build_R_with_data_freq <- function(beta,sus,N,S,P) {
 }
 
 #######################################################
+# FUNCTION: build_R_with_data_DD
+# Purpose: to calculate R matrix with data for a density dependent system
+#input:beta, I, N_TP, S, P
+# beta = an SxS matrix. The transmission coefficient between species i and species s
+# I = an PxS matrix. The number of infectious individuals of each species in each patch
+# S = number of species
+# P = number of patches
+#output: fullR.an S*P by S*P matrix. 
+#-----------------------------------------------------
+
+build_R_with_data_DD <- function(beta,sus,S,P) {
+  fullR <- matrix(data = 0, nrow = P*S, ncol = P*S)
+  for (p in 1:P) {
+    Rmat <- matrix(data = 0, nrow = S, ncol = S)
+    for (s in 1:S){
+      for (i in 1:S){
+        Rmat[s,i] <- (beta[s,i]*sus[p,i])
+      }
+    }
+    start <- ifelse(p == 1, p,(S*p)-(S-1))
+    stop <- start + S - 1
+    fullR[start:stop, start:stop] <- Rmat
+  }
+  return(fullR)
+}
+
+
+#######################################################
 # FUNCTION: build_B_with_data
 # Purpose: To calculate B matrix with data
 # input:Cmat, As, psi, b, S, P
@@ -176,6 +204,33 @@ landscape_R0_freq <- function(beta,sus,N,Cmat,b, phi,S,P){
                          N = N,
                          S = S,
                          P = P)
+  B <- build_B_with_data(Cmat = Cmat,
+                         phi = phi,
+                         b = b,
+                         S = S,
+                         P = P)
+  K <- -R %*% solve(-1*-B)
+  return(list(K = K, R = R, B = B))
+}
+
+####################################################################
+# Function: landscape_R0_DD
+# Purpose: Calculate the landscape level R0 from the data for a density dependent system
+#Input: beta, I, N_TP, Cmat, phi, b, S, P
+# beta: an SxS matrix.
+# Cmat = a PxP matrix. The colonization probabilities c_ij from patch j -> i
+# phi = an array of length S. The dispersal rates for each species
+# b = An SxP array. Relative loss rates of infecteds for each species in a patch
+# beta = a transmission coefficient between species
+# S = int. Number of species
+# P = int. Number of patches
+#Output: K. an S*P x S*P matrix. The matrix should be ordered by patch then by species. max eigenvalue of K = landscape R0.
+# R, a component of K, and B, a component of K
+landscape_R0_DD <- function(beta,sus,Cmat,b, phi,S,P){
+  R <- build_R_with_data_DD(beta = beta,
+                              sus = sus,
+                              S = S,
+                              P = P)
   B <- build_B_with_data(Cmat = Cmat,
                          phi = phi,
                          b = b,

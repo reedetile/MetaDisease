@@ -158,17 +158,17 @@ for(i in 1:ncol(c)){
 } 
 
 max_disp <- c(0.1, 0.01,0.001)
-result_2patch <- data.frame(matrix(data = NA, nrow = 0, ncol = 19))
+result_2patch <- data.frame(matrix(data = NA, nrow = 0, ncol = 20))
 # colnames(result_2patch) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY",
 #                       "PREG_rel","TGRAN_rel","TTOR_rel","ABOR_rel","RCAT_rel","RDRAY_rel",
 #                       "BetaDiversity","Gamma_diversity","LandscapeR0", "MetaCommID","max_disp")
 
 for(k in 1:length(max_disp)){
   phi <- runif(6, max = max_disp[[k]])
-  result <- data.frame(matrix(data = NA, nrow = length(meta_comm_list_2patch), ncol = 19))
+  result <- data.frame(matrix(data = NA, nrow = length(meta_comm_list_2patch), ncol = 20))
   colnames(result) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY",
                           "PREG_rel","TGRAN_rel","TTOR_rel","ABOR_rel","RCAT_rel","RDRAY_rel",
-                          "BetaDiversity","Gamma_diversity","LandscapeR0", "MetaCommID","max_disp",
+                          "BetaDiversity","Gamma_diversity","FD_R0", "DD_R0","MetaCommID","max_disp",
                           "max_disp_cat")
   for (a in 1:length(meta_comm_list_2patch)) {
     Sus <- meta_comm_list_2patch[[a]][,1:6]*species_chara$Susceptible #value of susceptibles
@@ -195,7 +195,7 @@ for(k in 1:length(max_disp)){
     result[a,15] <- sum(ifelse(result[a,1:6] > 0, 1,0)) #gamma diversity
       
     #calculate landscape R0
-    r0_landscape <- landscape_R0_freq(beta = beta,
+    FD_R0 <- landscape_R0_freq(beta = beta,
                                       sus = Sus,
                                       N = N,
                                       Cmat = c,
@@ -203,23 +203,19 @@ for(k in 1:length(max_disp)){
                                       phi = phi,
                                       S = num_spp,
                                       P = num_patches)
-    # r0_Patch <- patch_R0_freq_CON(beta = beta,
-    #                               sus = Sus,
-    #                               N = N,
-    #                               b = b,
-    #                               phi = phi,
-    #                               S = num_spp,
-    #                               P = num_patches,
-    #                               c = c)
-    # mean_r0Patch <- vector("numeric",length = num_patches)
-    # for(r in 1:num_patches){
-    #   mean_r0Patch[[r]] <- max(abs(eigen(r0_Patch[[1]][[r]])$values))
-    # }
+    DD_R0 <- landscape_R0_DD(beta = beta,
+                               sus = Sus,
+                               Cmat = c,
+                               b = b,
+                               phi = phi,
+                               S = num_spp,
+                               P = num_patches)
     
-    result[a,16] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
-    result[a,17] <- a #metacommunity ID
-    result[a,18] <- max(phi)
-    result[a,19] <- if(k == 1){
+    result[a,16] <- max(abs(eigen(FD_R0[[1]])$values)) #FD R0
+    result[a,17] <- max(abs(eigen(DD_R0[[1]])$values)) #DD R0
+    result[a,18] <- a #metacommunity ID
+    result[a,19] <- max(phi)
+    result[a,20] <- if(k == 1){
       "High"
     } else if(k == 2){
       "Med"
@@ -228,34 +224,34 @@ for(k in 1:length(max_disp)){
   result_2patch <- rbind(result_2patch, result)
 }
 
-# Run GAMs
-full_model_2 <- gam(LandscapeR0 ~ s(BetaDiversity , bs = "cr", k = 3)+ 
+# FD Run GAMs
+FD_full_model_2 <- gam(FD_R0 ~ s(BetaDiversity , bs = "cr", k = 3)+ 
                     s(max_disp, bs = "cr", k = 3),
                   data = result_2patch)
-beta_only_2 <- gam(LandscapeR0 ~ s(BetaDiversity, bs = "cr", k = 3), data = result_2patch)
-phi_only_2 <- gam(LandscapeR0 ~ s(max_disp, bs = "cr", k = 3), data = result_2patch)
+FD_beta_only_2 <- gam(FD_R0 ~ s(BetaDiversity, bs = "cr", k = 3), data = result_2patch)
+FD_phi_only_2 <- gam(FD_R0 ~ s(max_disp, bs = "cr", k = 3), data = result_2patch)
 # c_only_2 <- gam(LandscapeR0 ~ s(max_con, bs = "cr", k = 3), data = result_2patch)
 # beta_phi_2 <- gam(LandscapeR0 ~ s(BetaDiversity , bs = "cr", k = 3)+ s(max_disp, bs = "cr", k = 3), data = result_2patch)
 # beta_c_2 <- gam(LandscapeR0 ~ s(BetaDiversity , bs = "cr", k = 3) + s(max_con, bs = "cr", k = 3), data = result_2patch)
 # phi_c_2 <- gam(LandscapeR0 ~ s(max_disp, bs = "cr", k = 3) + s(max_con, bs = "cr", k = 3), data = result_2patch)
 
-AIC_tab_2 <- AIC(full_model_2,
-    beta_only_2,
-    phi_only_2)
+FD_AIC_tab_2 <- AIC(FD_full_model_2,
+    FD_beta_only_2,
+    FD_phi_only_2)
     # c_only_2,
     # beta_phi_2,
     # beta_c_2,
     # phi_c_2)
 
-mod_list_2 <- list(full_model_2,
-                 beta_only_2,
-                 phi_only_2)
+FD_mod_list_2 <- list(FD_full_model_2,
+                 FD_beta_only_2,
+                 FD_phi_only_2)
                  # c_only_2,
                  # beta_phi_2,
                  # beta_c_2,
                  # phi_c_2)
-AIC_tab_2$deltaAIC <-  AIC_tab_2$AIC - min(AIC_tab_2$AIC)
-AIC_tab_2$weight <- exp(-0.5*AIC_tab_2$deltaAIC)/sum(exp(-0.5*AIC_tab_2$deltaAIC))
+FD_AIC_tab_2$deltaAIC <-  FD_AIC_tab_2$AIC - min(FD_AIC_tab_2$AIC)
+FD_AIC_tab_2$weight <- exp(-0.5*FD_AIC_tab_2$deltaAIC)/sum(exp(-0.5*FD_AIC_tab_2$deltaAIC))
 npar_fun <- function(x){
   npar <- vector("numeric",length = length(x))
   for(i in 1:length(x)){
@@ -263,33 +259,72 @@ npar_fun <- function(x){
   }
   return(npar)
 }
-AIC_tab_2$npar <- npar_fun(x = mod_list_2)
+FD_AIC_tab_2$npar <- npar_fun(x = FD_mod_list_2)
 
-AIC_tab_2$deviance <- unlist(lapply(mod_list_2,deviance))
+FD_AIC_tab_2$deviance <- unlist(lapply(FD_mod_list_2,deviance))
 
-AIC_tab_2 <- AIC_tab_2 %>% arrange(deltaAIC)
+FD_AIC_tab_2 <- FD_AIC_tab_2 %>% arrange(deltaAIC)
 
-summary.gam(full_model_2)
+summary.gam(FD_full_model_2)
 
-# gamma_2patch_GAM <- gam(LandscapeR0 ~ s(Gamma_diversity, bs = "cr", k = 3), data = result_2patch)
-# summary(beta_2patch_GAM)
-# summary(gamma_2patch_GAM)
-# 
-# AIC(beta_2patch_GAM, gamma_2patch_GAM)
+
+# DD Run GAMs
+DD_full_model_2 <- gam(DD_R0 ~ s(BetaDiversity , bs = "cr", k = 3)+ 
+                      s(max_disp, bs = "cr", k = 3),
+                    data = result_2patch)
+DD_beta_only_2 <- gam(DD_R0 ~ s(BetaDiversity, bs = "cr", k = 3), data = result_2patch)
+DD_phi_only_2 <- gam(DD_R0 ~ s(max_disp, bs = "cr", k = 3), data = result_2patch)
+# c_only_2 <- gam(LandscapeR0 ~ s(max_con, bs = "cr", k = 3), data = result_2patch)
+# beta_phi_2 <- gam(LandscapeR0 ~ s(BetaDiversity , bs = "cr", k = 3)+ s(max_disp, bs = "cr", k = 3), data = result_2patch)
+# beta_c_2 <- gam(LandscapeR0 ~ s(BetaDiversity , bs = "cr", k = 3) + s(max_con, bs = "cr", k = 3), data = result_2patch)
+# phi_c_2 <- gam(LandscapeR0 ~ s(max_disp, bs = "cr", k = 3) + s(max_con, bs = "cr", k = 3), data = result_2patch)
+
+DD_AIC_tab_2 <- AIC(DD_full_model_2,
+                 DD_beta_only_2,
+                 DD_phi_only_2)
+# c_only_2,
+# beta_phi_2,
+# beta_c_2,
+# phi_c_2)
+
+DD_mod_list_2 <- list(DD_full_model_2,
+                   DD_beta_only_2,
+                   DD_phi_only_2)
+# c_only_2,
+# beta_phi_2,
+# beta_c_2,
+# phi_c_2)
+DD_AIC_tab_2$deltaAIC <-  DD_AIC_tab_2$AIC - min(DD_AIC_tab_2$AIC)
+DD_AIC_tab_2$weight <- exp(-0.5*DD_AIC_tab_2$deltaAIC)/sum(exp(-0.5*DD_AIC_tab_2$deltaAIC))
+npar_fun <- function(x){
+  npar <- vector("numeric",length = length(x))
+  for(i in 1:length(x)){
+    npar[[i]] <- length(names(x[[i]][["model"]])) - 1
+  }
+  return(npar)
+}
+DD_AIC_tab_2$npar <- npar_fun(x = DD_mod_list_2)
+
+DD_AIC_tab_2$deviance <- unlist(lapply(DD_mod_list_2,deviance))
+
+DD_AIC_tab_2 <- DD_AIC_tab_2 %>% arrange(deltaAIC)
+
+summary.gam(DD_full_model_2)
 
 # plot beta X R0
 # result_2patch$Connectivity <- factor(result_2patch$max_con_cat, levels = c("Low","Med","High"))
 result_2patch$Dispersal <- factor(result_2patch$max_disp_cat, levels = c("Low","Med","High"))
 
-beta_plot_2patch <-  ggplot(result_2patch, aes(x = BetaDiversity, y = LandscapeR0)) +
+# FD
+FD_beta_plot_2patch <-  ggplot(result_2patch, aes(x = BetaDiversity, y = FD_R0)) +
   geom_point(shape = 1, alpha = 0.15)+
   geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
   theme_classic()+
   ylim(0,0.9)+
   labs(x  = expression(beta[w]),y = expression(R["0,L"]))
-beta_plot_2patch
+FD_beta_plot_2patch
 
-disp_plots_2patch <- ggplot(result_2patch, aes(x = BetaDiversity, y = LandscapeR0)) + 
+FD_disp_plots_2patch <- ggplot(result_2patch, aes(x = BetaDiversity, y = FD_R0)) + 
   # geom_point(data = result_2patch, aes(x = BetaDiversity,
   #                                      y = LandscapeR0,
   #                                      shape = Dispersal,
@@ -302,12 +337,41 @@ disp_plots_2patch <- ggplot(result_2patch, aes(x = BetaDiversity, y = LandscapeR
   facet_grid(rows = vars(Dispersal))+
   theme(plot.margin = margin(t = 25, r = 15,b = 10,l = 0))
 
-grid_plot_2patch <- ggdraw(disp_plots_2patch) +
+FD_grid_plot_2patch <- ggdraw(FD_disp_plots_2patch) +
   # Column title (top)
   draw_label("Dispersal",x = 0.5, y = 0.95,vjust = 0.5,size = 14)
 
 
-grid_plot_2patch
+FD_grid_plot_2patch
+
+# DD
+DD_beta_plot_2patch <-  ggplot(result_2patch, aes(x = BetaDiversity, y = DD_R0)) +
+  geom_point(shape = 1, alpha = 0.15)+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+  theme_classic()+
+  ylim(0,250)+
+  labs(x  = expression(beta[w]),y = expression(R["0,L"]))
+DD_beta_plot_2patch
+
+DD_disp_plots_2patch <- ggplot(result_2patch, aes(x = BetaDiversity, y = DD_R0)) + 
+  # geom_point(data = result_2patch, aes(x = BetaDiversity,
+  #                                      y = LandscapeR0,
+  #                                      shape = Dispersal,
+  #                                      colour = Connectivity)) + 
+  geom_point(shape = 1, alpha = 0.15)+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+  theme_classic()+
+  ylim(0,250)+
+  labs(x  = expression(beta[w]),y = expression(R["0,L"]))+
+  facet_grid(rows = vars(Dispersal))+
+  theme(plot.margin = margin(t = 25, r = 15,b = 10,l = 0))
+
+DD_grid_plot_2patch <- ggdraw(DD_disp_plots_2patch) +
+  # Column title (top)
+  draw_label("Dispersal",x = 0.5, y = 0.95,vjust = 0.5,size = 14)
+
+
+DD_grid_plot_2patch
 
 # PatchR0_plot <- ggplot(result_2patch,aes(x = Gamma_diversity, y = mean_R0P))+
 #   geom_point()+
@@ -317,6 +381,8 @@ grid_plot_2patch
 #   facet_grid(rows = vars(max_disp_cat),cols = vars(max_con_cat))
 
 # PatchR0_plot
+
+
 ### 5 patch system
 meta_comm_list_5patch <- readRDS("metacomm_5Patch.RDS")
 num_patches <- 5
@@ -334,14 +400,14 @@ for(i in 1:ncol(c)){
   }
 } 
 max_disp <- c(0.1, 0.01,0.001)
-result_5patch <- data.frame(matrix(data = NA, nrow = 0, ncol = 19))
+result_5patch <- data.frame(matrix(data = NA, nrow = 0, ncol = 20))
 
 for(k in 1:length(max_disp)){
   phi <- runif(6, max = max_disp[[k]])
-  result <- data.frame(matrix(data = NA, nrow = length(meta_comm_list_5patch), ncol = 19))
+  result <- data.frame(matrix(data = NA, nrow = length(meta_comm_list_5patch), ncol = 20))
   colnames(result) <- c("TotalAbundance","PREG","TGRAN","TTOR","ABOR","RCAT","RDRAY",
                         "PREG_rel","TGRAN_rel","TTOR_rel","ABOR_rel","RCAT_rel","RDRAY_rel",
-                        "BetaDiversity","Gamma_diversity","LandscapeR0", "MetaCommID","max_disp",
+                        "BetaDiversity","Gamma_diversity","FD_R0","DD_R0","MetaCommID","max_disp",
                         "max_disp_cat")
   for (a in 1:length(meta_comm_list_5patch)) {
     Sus <- meta_comm_list_5patch[[a]][,1:6]*species_chara$Susceptible #value of susceptibles
@@ -368,31 +434,27 @@ for(k in 1:length(max_disp)){
     result[a,15] <- sum(ifelse(result[a,1:6] > 0, 1,0)) #gamma diversity
     
     #calculate landscape R0
-    r0_landscape <- landscape_R0_freq(beta = beta,
-                                      sus = Sus,
-                                      N = N,
-                                      Cmat = c,
-                                      b = b,
-                                      phi = phi,
-                                      S = num_spp,
-                                      P = num_patches)
-    # r0_Patch <- patch_R0_freq_CON(beta = beta,
-    #                               sus = Sus,
-    #                               N = N,
-    #                               b = b,
-    #                               phi = phi,
-    #                               S = num_spp,
-    #                               P = num_patches,
-    #                               c = c)
-    # mean_r0Patch <- vector("numeric",length = num_patches)
-    # for(r in 1:num_patches){
-    #   mean_r0Patch[[r]] <- max(abs(eigen(r0_Patch[[1]][[r]])$values))
-    # }
+    FD_R0 <- landscape_R0_freq(beta = beta,
+                               sus = Sus,
+                               N = N,
+                               Cmat = c,
+                               b = b,
+                               phi = phi,
+                               S = num_spp,
+                               P = num_patches)
+    DD_R0 <- landscape_R0_DD(beta = beta,
+                             sus = Sus,
+                             Cmat = c,
+                             b = b,
+                             phi = phi,
+                             S = num_spp,
+                             P = num_patches)
     
-    result[a,16] <- max(abs(eigen(r0_landscape[[1]])$values)) #landscape R0
-    result[a,17] <- a #metacommunity ID
-    result[a,18] <- max(phi)
-    result[a,19] <- if(k == 1){
+    result[a,16] <- max(abs(eigen(FD_R0[[1]])$values)) #FD R0
+    result[a,17] <- max(abs(eigen(DD_R0[[1]])$values)) #FD R0
+    result[a,18] <- a #metacommunity ID
+    result[a,19] <- max(phi)
+    result[a,20] <- if(k == 1){
       "High"
     } else if(k == 2){
       "Med"
@@ -402,36 +464,37 @@ for(k in 1:length(max_disp)){
 }
 
 # Run GAMs
-full_model_5 <- gam(LandscapeR0 ~ s(BetaDiversity , bs = "cr", k = 3)+ 
+# FD
+FD_full_model_5 <- gam(FD_R0 ~ s(BetaDiversity , bs = "cr", k = 3)+ 
                     s(max_disp, bs = "cr", k = 3), 
                   data = result_5patch)
-beta_only_5 <- gam(LandscapeR0 ~ s(BetaDiversity, bs = "cr", k = 3), data = result_5patch)
-phi_only_5 <- gam(LandscapeR0 ~ s(max_disp, bs = "cr", k = 3), data = result_5patch)
+FD_beta_only_5 <- gam(FD_R0 ~ s(BetaDiversity, bs = "cr", k = 3), data = result_5patch)
+FD_phi_only_5 <- gam(FD_R0 ~ s(max_disp, bs = "cr", k = 3), data = result_5patch)
 # c_only_5 <- gam(LandscapeR0 ~ s(max_con, bs = "cr", k = 3), data = result_5patch)
 # beta_phi_5 <- gam(LandscapeR0 ~ s(BetaDiversity , bs = "cr", k = 3)+ s(max_disp, bs = "cr", k = 3), data = result_5patch)
 # beta_c_5 <- gam(LandscapeR0 ~ s(BetaDiversity , bs = "cr", k = 3) + s(max_con, bs = "cr", k = 3), data = result_5patch)
 # phi_c_5 <- gam(LandscapeR0 ~ s(max_disp, bs = "cr", k = 3) + s(max_con, bs = "cr", k = 3), data = result_5patch)
 
-AIC_tab_5 <- AIC(full_model_5,
-               beta_only_5,
-               phi_only_5)
+FD_AIC_tab_5 <- AIC(FD_full_model_5,
+               FD_beta_only_5,
+               FD_phi_only_5)
                # c_only_5,
                # beta_phi_5,
                # beta_c_5,
                # phi_c_5)
 
-mod_list_5 <- list(full_model_5,
-                 beta_only_5,
-                 phi_only_5)
+FD_mod_list_5 <- list(FD_full_model_5,
+                 FD_beta_only_5,
+                 FD_phi_only_5)
                  # c_only_5,
                  # beta_phi_5,
                  # beta_c_5,
                  # phi_c_5)
-AIC_tab_5$deltaAIC <- AIC_tab_5$AIC - min(AIC_tab_5$AIC) 
-AIC_tab_5
-AIC_tab_5 <- AIC_tab_5 %>% arrange(deltaAIC)
-AIC_tab_5$weight <- exp(-0.5*AIC_tab_5$deltaAIC)/sum(exp(-0.5*AIC_tab_5$deltaAIC))
-AIC_tab_5
+FD_AIC_tab_5$deltaAIC <- FD_AIC_tab_5$AIC - min(FD_AIC_tab_5$AIC) 
+FD_AIC_tab_5
+FD_AIC_tab_5 <- FD_AIC_tab_5 %>% arrange(deltaAIC)
+FD_AIC_tab_5$weight <- exp(-0.5*FD_AIC_tab_5$deltaAIC)/sum(exp(-0.5*FD_AIC_tab_5$deltaAIC))
+FD_AIC_tab_5
 npar_fun <- function(x){
   npar <- vector("numeric",length = length(x))
   for(i in 1:length(x)){
@@ -439,23 +502,70 @@ npar_fun <- function(x){
   }
   return(npar)
 }
-AIC_tab_5$npar <- npar_fun(x = mod_list_5)
-AIC_tab_5$dev <- lapply(mod_list_5,deviance)
-AIC_tab_5 <- AIC_tab_5 %>% arrange(deltaAIC)
+FD_AIC_tab_5$npar <- npar_fun(x = FD_mod_list_5)
+FD_AIC_tab_5$dev <- lapply(FD_mod_list_5,deviance)
+FD_AIC_tab_5 <- FD_AIC_tab_5 %>% arrange(deltaAIC)
 summary(full_model_5)
+
+# DD
+
+DD_full_model_5 <- gam(DD_R0 ~ s(BetaDiversity , bs = "cr", k = 3)+ 
+                         s(max_disp, bs = "cr", k = 3), 
+                       data = result_5patch)
+DD_beta_only_5 <- gam(DD_R0 ~ s(BetaDiversity, bs = "cr", k = 3), data = result_5patch)
+DD_phi_only_5 <- gam(DD_R0 ~ s(max_disp, bs = "cr", k = 3), data = result_5patch)
+# c_only_5 <- gam(LandscapeR0 ~ s(max_con, bs = "cr", k = 3), data = result_5patch)
+# beta_phi_5 <- gam(LandscapeR0 ~ s(BetaDiversity , bs = "cr", k = 3)+ s(max_disp, bs = "cr", k = 3), data = result_5patch)
+# beta_c_5 <- gam(LandscapeR0 ~ s(BetaDiversity , bs = "cr", k = 3) + s(max_con, bs = "cr", k = 3), data = result_5patch)
+# phi_c_5 <- gam(LandscapeR0 ~ s(max_disp, bs = "cr", k = 3) + s(max_con, bs = "cr", k = 3), data = result_5patch)
+
+DD_AIC_tab_5 <- AIC(DD_full_model_5,
+                    DD_beta_only_5,
+                    DD_phi_only_5)
+# c_only_5,
+# beta_phi_5,
+# beta_c_5,
+# phi_c_5)
+
+DD_mod_list_5 <- list(DD_full_model_5,
+                      DD_beta_only_5,
+                      DD_phi_only_5)
+# c_only_5,
+# beta_phi_5,
+# beta_c_5,
+# phi_c_5)
+DD_AIC_tab_5$deltaAIC <- DD_AIC_tab_5$AIC - min(DD_AIC_tab_5$AIC) 
+DD_AIC_tab_5
+DD_AIC_tab_5 <- DD_AIC_tab_5 %>% arrange(deltaAIC)
+DD_AIC_tab_5$weight <- exp(-0.5*DD_AIC_tab_5$deltaAIC)/sum(exp(-0.5*DD_AIC_tab_5$deltaAIC))
+DD_AIC_tab_5
+npar_fun <- function(x){
+  npar <- vector("numeric",length = length(x))
+  for(i in 1:length(x)){
+    npar[[i]] <- length(names(x[[i]][["model"]])) - 1
+  }
+  return(npar)
+}
+DD_AIC_tab_5$npar <- npar_fun(x = DD_mod_list_5)
+DD_AIC_tab_5$dev <- lapply(DD_mod_list_5,deviance)
+DD_AIC_tab_5 <- DD_AIC_tab_5 %>% arrange(deltaAIC)
+summary(full_model_5)
+
+
 # Plot
 result_5patch$Dispersal <- factor(result_5patch$max_disp_cat, levels =  c("Low","Med","High"))
 
-beta_plot_5patch <-  ggplot(result_5patch, aes(x = BetaDiversity, y = LandscapeR0)) +
+# FD
+FD_beta_plot_5patch <-  ggplot(result_5patch, aes(x = BetaDiversity, y = FD_R0)) +
   geom_point(shape = 1, alpha = 0.15)+
   geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
   theme_classic()+
   ylim(0,0.9)+
   labs(x  = expression(beta[w]),y = expression(R["0,L"]))
-beta_plot_5patch
+FD_beta_plot_5patch
 
-grid_plot_5patch <- ggplot(result_5patch, aes(x = BetaDiversity, 
-                                              y = LandscapeR0)) +
+FD_grid_plot_5patch <- ggplot(result_5patch, aes(x = BetaDiversity, 
+                                              y = FD_R0)) +
   geom_point(shape = 1, alpha = 0.15)+
   # geom_point(data = result_5patch, aes(x = BetaDiversity,
   #                                     y = LandscapeR0,
@@ -469,11 +579,42 @@ grid_plot_5patch <- ggplot(result_5patch, aes(x = BetaDiversity,
   theme(plot.margin = margin(t = 25, r = 15,b = 10,l = 0))
 
 
-grid_plot_5patch <- ggdraw(grid_plot_5patch) +
+FD_grid_plot_5patch <- ggdraw(FD_grid_plot_5patch) +
   # Column title (top)
   draw_label("Dispersal",x = 0.5, y = 1.0,vjust = 0.5,size = 14)
 
-grid_plot_5patch
+FD_grid_plot_5patch
+
+# DD
+
+DD_beta_plot_5patch <-  ggplot(result_5patch, aes(x = BetaDiversity, y = DD_R0)) +
+  geom_point(shape = 1, alpha = 0.15)+
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+  theme_classic()+
+  ylim(0,7200)+
+  labs(x  = expression(beta[w]),y = expression(R["0,L"]))
+DD_beta_plot_5patch
+
+DD_grid_plot_5patch <- ggplot(result_5patch, aes(x = BetaDiversity, 
+                                                 y = DD_R0)) +
+  geom_point(shape = 1, alpha = 0.15)+
+  # geom_point(data = result_5patch, aes(x = BetaDiversity,
+  #                                     y = LandscapeR0,
+  #                                     shape = Dispersal,
+  #                                     colour = Connectivity)) + 
+  geom_smooth(method = "gam", formula = y ~ s(x, bs = "cr", k = 3), colour = "black")+
+  theme_classic()+
+  ylim(0,7200)+
+  labs(x  = expression(beta[w]),y = expression(R["0,L"]))+
+  facet_grid(rows = vars(Dispersal))+
+  theme(plot.margin = margin(t = 25, r = 15,b = 10,l = 0))
+
+
+DD_grid_plot_5patch <- ggdraw(DD_grid_plot_5patch) +
+  # Column title (top)
+  draw_label("Dispersal",x = 0.5, y = 1.0,vjust = 0.5,size = 14)
+
+DD_grid_plot_5patch
 
 # # For good measure, lets plot connectivity + dispersal in each system
 # # 2 patchs
