@@ -505,7 +505,7 @@ npar_fun <- function(x){
 FD_AIC_tab_5$npar <- npar_fun(x = FD_mod_list_5)
 FD_AIC_tab_5$dev <- lapply(FD_mod_list_5,deviance)
 FD_AIC_tab_5 <- FD_AIC_tab_5 %>% arrange(deltaAIC)
-summary(full_model_5)
+summary(FD_full_model_5)
 
 # DD
 
@@ -549,7 +549,7 @@ npar_fun <- function(x){
 DD_AIC_tab_5$npar <- npar_fun(x = DD_mod_list_5)
 DD_AIC_tab_5$dev <- lapply(DD_mod_list_5,deviance)
 DD_AIC_tab_5 <- DD_AIC_tab_5 %>% arrange(deltaAIC)
-summary(full_model_5)
+summary(DD_full_model_5)
 
 
 # Plot
@@ -616,6 +616,31 @@ DD_grid_plot_5patch <- ggdraw(DD_grid_plot_5patch) +
 
 DD_grid_plot_5patch
 
+
+### compare FD vs DD ###
+graph_data_2patch <- result_2patch %>% pivot_longer(cols = FD_R0:DD_R0, 
+                                             names_to = "Trans_Type",
+                                             values_to = "R0")
+FD_DD_2patch_plot <- ggplot(data = graph_data_2patch, aes(x = BetaDiversity, 
+                                                      y = R0,
+                                                      colour = Trans_Type))+
+  geom_point()+
+  ggtitle("2 patch system")
+
+FD_DD_2patch_plot
+
+
+# 5 patch #
+graph_data_5patch <- result_5patch %>% pivot_longer(cols = FD_R0:DD_R0, 
+                                                    names_to = "Trans_Type",
+                                                    values_to = "R0")
+FD_DD_5patch_plot <- ggplot(data = graph_data_5patch, aes(x = BetaDiversity, 
+                                                   y = R0,
+                                                   colour = Trans_Type))+
+  geom_point()+
+  ggtitle("5 patch")
+
+FD_DD_5patch_plot
 # # For good measure, lets plot connectivity + dispersal in each system
 # # 2 patchs
 # conn_plot_2 <- ggplot(data = result_2patch, aes(x = exp(max_con), y = LandscapeR0))+
@@ -649,12 +674,34 @@ DD_grid_plot_5patch
 # 
 # # combine plots 1/10/26. Combing new beta plots into one fig
 # 
-beta_plots <- (beta_plot_2patch + beta_plot_5patch)/
-  (grid_plot_2patch +grid_plot_5patch) +plot_annotation(tag_levels = "A")
+FD_beta_plots <- (FD_beta_plot_2patch + FD_beta_plot_5patch)/
+  (FD_grid_plot_2patch + FD_grid_plot_5patch) +plot_annotation(tag_levels = "A")
+FD_beta_plots
+
+DD_beta_plots <- (DD_beta_plot_2patch + DD_beta_plot_5patch)/
+  (DD_grid_plot_2patch + DD_grid_plot_5patch) +plot_annotation(tag_levels = "A")
+DD_beta_plots
+
+beta_plots <- (FD_beta_plot_2patch + FD_beta_plot_5patch)/
+  (FD_grid_plot_2patch + FD_grid_plot_5patch) /
+  (DD_beta_plot_2patch + DD_beta_plot_5patch)/
+  (DD_grid_plot_2patch + DD_grid_plot_5patch) +plot_annotation(tag_levels = "A")
 beta_plots
 
+
+
 setwd(graphs)
+ggsave(filename = "FD_beta_plots.png",
+       FD_beta_plots,
+       width = 10,
+       height = 10)
+
+ggsave(filename = "DD_beta_plots.png",
+       DD_beta_plots,
+       width = 10,
+       height = 10)
+
 ggsave(filename = "beta_plots.png",
        beta_plots,
        width = 10,
-       height = 10)
+       height = 12)
